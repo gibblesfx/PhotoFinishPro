@@ -235,11 +235,7 @@
             font-size: 0.9em;
         }
         #frameCanvas { display: none; }
-        #emailNotice {
-            font-size: 0.8em;
-            color: var(--text-color);
-            margin-top: 5px;
-        }
+        /* #emailNotice removed */
         #settingsArea small {
             color: var(--text-color);
             display: block;
@@ -250,7 +246,8 @@
     </style>
 </head>
 <body class="dark-mode">
-    <div style="display: flex; justify-content: space-between; align-items: center; width: 90%; max-width: 640px;">
+    <!-- MODIFIED: justify-content changed to center for the h1 -->
+    <div style="display: flex; justify-content: center; align-items: center; width: 90%; max-width: 640px;">
         <h1>DLS PhotoFinish Pro</h1>
     </div>
 
@@ -262,6 +259,12 @@
     <canvas id="frameCanvas"></canvas>
 
     <button id="setupCameraButton">Setup Camera</button>
+
+    <!-- MOVED: Controls div (Start/Reset buttons) moved above settingsArea -->
+    <div id="controls">
+        <button id="startButton" disabled>Start Race</button>
+        <button id="resetButton" disabled>Reset</button>
+    </div>
 
     <div id="settingsArea" style="display:none;">
         <h3>Settings</h3>
@@ -294,11 +297,6 @@
         </div>
     </div>
 
-    <div id="controls">
-        <button id="startButton" disabled>Start Race</button>
-        <button id="resetButton" disabled>Reset</button>
-    </div>
-
     <div id="status">Status: Awaiting camera setup.</div>
 
     <div id="resultsArea">
@@ -311,7 +309,7 @@
         <button id="emailResultsButton" disabled>Email Results (Text Only)</button>
         <button id="themeToggleButton">Switch to Light Mode</button>
         <button id="sendToSheetButton" disabled>Send Race to Sheet</button>
-        <div id="emailNotice">For automatic image emailing, a server-side setup is required.</div>
+        <!-- REMOVED: <div id="emailNotice">...</div> -->
     </div>
 
     <script>
@@ -475,7 +473,10 @@
                         startButton.disabled = false;
                     }
                     setupCameraButton.disabled = true; setupCameraButton.style.display = 'none';
-                    settingsAreaDiv.style.display = 'block'; updateRunnerNameInputs();
+                    // Make sure controls are visible if camera setup is complete
+                    document.getElementById('controls').style.display = 'block'; // Or 'inline-block'/'flex' depending on styling
+                    settingsAreaDiv.style.display = 'block'; 
+                    updateRunnerNameInputs();
                     finishLineOverlay.style.display = 'block'; cameraPlaceholderText.style.display = 'none';
                     if (animationFrameId) cancelAnimationFrame(animationFrameId);
                     processFrameLoop();
@@ -562,7 +563,6 @@
                         if (runnerCount >= MAX_RUNNERS) {
                             raceTimerActive = false; statusDiv.textContent = "Status: Race Finished! All runners recorded.";
                             startButton.disabled = true; resetButton.disabled = false; emailResultsButton.disabled = false;
-                            // Check if URL is properly configured before enabling the button
                             if (GOOGLE_SHEET_WEB_APP_URL && GOOGLE_SHEET_WEB_APP_URL !== "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" && GOOGLE_SHEET_WEB_APP_URL.startsWith("https://")) {
                                 sendToSheetButton.disabled = false;
                             } else {
@@ -572,7 +572,6 @@
                     }
                 }
             } else if (video.srcObject && !video.paused && !video.ended && detectionMode === 'pixel') {
-                 // Clear previous frame data if race is not active, to avoid false detection on race start.
                 if (previousFramePixelData) previousFramePixelData = null;
             }
             animationFrameId = requestAnimationFrame(processFrameLoop);
@@ -609,10 +608,14 @@
             if (detectionMode === 'object' && !modelReady) canStart = false;
             startButton.disabled = !canStart; resetButton.disabled = true; emailResultsButton.disabled = true; sendToSheetButton.disabled = true;
             if (stream && video.srcObject) {
-                settingsAreaDiv.style.display = 'block'; updateRunnerNameInputs();
+                // Ensure controls and settings are visible and appropriately styled after reset if camera is active
+                document.getElementById('controls').style.display = 'block'; // Or 'inline-block'/'flex' etc.
+                settingsAreaDiv.style.display = 'block';
+                updateRunnerNameInputs();
                 statusDiv.textContent = "Status: Ready for new race. Position finish line.";
             } else {
                 settingsAreaDiv.style.display = 'none'; runnerNamesAreaContainer.innerHTML = '';
+                document.getElementById('controls').style.display = 'block'; // Or 'none' if no camera
                 setupCameraButton.disabled = false; setupCameraButton.style.display = 'inline-block';
                 finishLineOverlay.style.display = 'none'; cameraPlaceholderText.style.display = 'block';
                 startButton.disabled = true; statusDiv.textContent = "Status: Camera disconnected.";
@@ -626,7 +629,8 @@
             const resultsTextArray = []; resultsLog.querySelectorAll('.result-entry span').forEach(s => resultsTextArray.push(s.textContent));
             if (resultsTextArray.length === 0) { alert("No results to email."); return; }
             const subject = "Photo Finish Race Results";
-            const body = "Race Results:\n\n" + resultsTextArray.join("\n") + `\n\nTotal Runners Configured for this Race: ${raceConfiguredMaxRunners}` + "\n\nNote: For automatic image emailing, a server-side setup is required.";
+            // MODIFIED: Removed the server-side setup note from the email body
+            const body = "Race Results:\n\n" + resultsTextArray.join("\n") + `\n\nTotal Runners Configured for this Race: ${raceConfiguredMaxRunners}`;
             const mailtoLink = `mailto:${encodeURIComponent(currentRecipientEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             window.location.href = mailtoLink;
         };
@@ -653,19 +657,20 @@
             try {
                 const response = await fetch(webAppURL, {
                     method: 'POST',
-                    mode: 'cors', // Browser will handle preflight if needed
+                    mode: 'cors',
                     cache: 'no-cache',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
 
-                const responseText = await response.text(); // Get text first, then try to parse
+                const responseText = await response.text();
                 let responseData;
                 try {
                     responseData = JSON.parse(responseText);
                 } catch (e) {
                     console.error("Failed to parse JSON response from Apps Script:", responseText);
-                    responseData = { status: "error", message: "Invalid JSON response from server: " + responseText.substring(0, 100) };
+                    // This is crucial for debugging if the Apps Script returns non-JSON (e.g., HTML error page)
+                    responseData = { status: "error", message: "Invalid JSON response from server. Raw response (first 100 chars): " + responseText.substring(0, 100) };
                 }
 
                 if (response.ok && responseData && responseData.status === "success") {
@@ -673,24 +678,26 @@
                     statusDiv.textContent = originalStatus + ` (Sent ${responseData.processedCount || resultsArray.length} results to Sheet!)`;
                     return true;
                 } else {
-                    const errorMsg = `Error sending batch data. Server Status: ${response.status}. Message: ${responseData.message || "Unknown error from Apps Script."}`;
+                    // Log the full response text if it wasn't a JSON success for better debugging
+                    if (!(responseData && responseData.status === "success")){
+                        console.error("Full response text from Apps Script:", responseText);
+                    }
+                    const errorMsg = `Error sending batch data. Server Status: ${response.status}. Message: ${responseData.message || "Unknown error from Apps Script. Check console for details."}`;
                     console.error(errorMsg);
                     statusDiv.textContent = originalStatus + " (Sheet batch send error!)";
                     alert(errorMsg);
                     return false;
                 }
-            } catch (error) {
+            } catch (error) { // Network error or other fetch-related issue
                 console.error("Fetch error sending batch data to Google Sheet:", error);
                 statusDiv.textContent = originalStatus + " (Sheet batch send error! Check console.)";
-                alert("Fetch error: " + error.message + ". Ensure the Apps Script URL is correct, deployed with 'Anyone' access, and your network allows the connection.");
+                alert("Fetch error: " + error.message + ". Ensure the Apps Script URL is correct, deployed with 'Anyone' access, and your network allows the connection. Check browser console (Network tab) for details.");
                 return false;
             } finally {
                 setTimeout(() => {
                     if (statusDiv.textContent.includes("(Sending to Sheet...)") || statusDiv.textContent.includes("(Sheet batch send error!)") || statusDiv.textContent.includes("results to Sheet!)")) {
                        statusDiv.textContent = originalStatus;
                     }
-                    // Re-enable button if there are still results and the send wasn't successful
-                    // Or if you want to allow re-sending even after success.
                     if (resultsArray.length > 0 ) {
                        sendToSheetButton.disabled = false; // Always re-enable to allow retry
                     }
@@ -706,16 +713,12 @@
             const success = await sendAllResultsToGoogleSheet(raceResultsForSheet);
             if (success) {
                 alert(raceResultsForSheet.length + " results sent to Google Sheet successfully!");
-                // Optionally clear results or keep them for resending
-                // raceResultsForSheet = [];
-            } else {
-                // Alert already handled in sendAllResultsToGoogleSheet
             }
         };
 
         // Initial state setup
+        document.getElementById('controls').style.display = 'block'; // Make sure controls are visible initially
         startButton.disabled = true; resetButton.disabled = true; emailResultsButton.disabled = true; sendToSheetButton.disabled = true;
-        // Check URL on load and log a warning if it's not set correctly.
         if (!GOOGLE_SHEET_WEB_APP_URL || GOOGLE_SHEET_WEB_APP_URL === "YOUR_DEPLOYED_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE" || !GOOGLE_SHEET_WEB_APP_URL.startsWith("https://")) {
             console.warn("Google Sheet Web App URL not configured or is a placeholder. 'Send to Sheet' button will be non-functional until configured and a race is completed. Please update the GOOGLE_SHEET_WEB_APP_URL constant in the script section of this HTML file.");
         }
@@ -729,9 +732,8 @@
 
         window.addEventListener('beforeunload', (event) => {
             if (raceTimerActive || resultsLog.children.length > 0) {
-                // Standard way to prompt user before leaving
                 event.preventDefault();
-                event.returnValue = ''; // Required for Chrome
+                event.returnValue = '';
             }
             if (stream) stream.getTracks().forEach(track => track.stop());
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
