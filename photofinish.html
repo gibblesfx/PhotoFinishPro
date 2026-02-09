@@ -3,182 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLS Photo Finish Pro 2026</title>
+    <title>DLS PhotoFinish Pro 2026</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest"></script>
 
     <style>
         :root {
-            --bg-color: #f0f0f0;
-            --text-color: #333;
-            --container-bg: #f9f9f9;
-            --container-border: #ccc;
-            --input-bg: white;
-            --input-border: #ccc;
-            --input-text: #333;
-            --button-primary-bg: #007bff;
-            --button-primary-hover-bg: #0056b3;
-            --button-secondary-bg: #4CAF50;
-            --button-secondary-hover-bg: #45a049;
-            --button-danger-bg: #f44336;
-            --button-danger-hover-bg: #da190b;
-            --button-warning-bg: #ff9800;
-            --button-warning-hover-bg: #f57c00;
-            --button-info-bg: #607d8b;
-            --button-info-hover-bg: #546e7a;
-            --button-text-color: white;
-            --disabled-bg-color: #cccccc;
-            --disabled-text-color: #666666;
-            --link-color: #007bff;
-            --placeholder-text-color: white;
-            --status-text-color: #333;
-            --finish-line-color: rgba(255, 0, 0, 0.7);
-            --camera-container-bg: #333;
-            --result-entry-bg: white;
-            --result-entry-border: #ddd;
+            --bg-color: #f0f0f0; --text-color: #333; --container-bg: #f9f9f9;
+            --input-bg: white; --button-primary: #007bff; --button-success: #4CAF50;
+            --button-danger: #f44336; --button-info: #607d8b; --finish-line: rgba(255, 0, 0, 0.7);
         }
-
         body.dark-mode {
-            --bg-color: #1e1e1e;
-            --text-color: #e0e0e0;
-            --container-bg: #2c2c2c;
-            --container-border: #444;
-            --input-bg: #3a3a3a;
-            --input-border: #555;
-            --input-text: #e0e0e0;
-            --button-primary-bg: #0056b3;
-            --button-primary-hover-bg: #004085;
-            --button-secondary-bg: #388e3c;
-            --button-secondary-hover-bg: #2e7d32;
-            --button-danger-bg: #c62828;
-            --button-danger-hover-bg: #b71c1c;
-            --button-warning-bg: #ef6c00;
-            --button-warning-hover-bg: #e65100;
-            --button-info-bg: #455a64;
-            --button-info-hover-bg: #37474f;
-            --button-text-color: #e0e0e0;
-            --disabled-bg-color: #424242;
-            --disabled-text-color: #888888;
-            --link-color: #4dabf7;
-            --placeholder-text-color: #ccc;
-            --status-text-color: #e0e0e0;
-            --camera-container-bg: #111;
-            --result-entry-bg: #2c2c2c;
-            --result-entry-border: #444;
+            --bg-color: #1e1e1e; --text-color: #e0e0e0; --container-bg: #2c2c2c;
+            --input-bg: #3a3a3a; --button-primary: #0056b3; --button-success: #388e3c;
+            --button-danger: #c62828; --button-info: #455a64;
         }
 
-        body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin-top: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        /* The "Flash" confirmation effect */
-        .flash-trigger {
-            animation: flash-white 0.2s ease-out;
-        }
-        @keyframes flash-white {
-            0% { background-color: #fff; }
-            100% { background-color: var(--bg-color); }
-        }
-
-        #cameraContainer {
-            position: relative;
-            width: 90vw;
-            max-width: 640px;
-            height: calc(90vw * 0.75);
-            max-height: 480px;
-            border: 2px solid var(--text-color);
-            margin-bottom: 10px;
-            background-color: var(--camera-container-bg);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-        }
-        #cameraFeed { width: 100%; height: 100%; object-fit: cover; }
-        #finishLineOverlay {
-            position: absolute;
-            left: 50%; top: 0; bottom: 0;
-            width: 4px;
-            background-color: var(--finish-line-color);
-            transform: translateX(-50%);
-            cursor: ew-resize;
-            display: none;
-            z-index: 10;
-            box-shadow: 0 0 5px rgba(0,0,0,0.5);
-        }
-        #controls, #settingsArea, #resultsArea {
-            margin-bottom: 20px;
-            text-align: center;
-            width: 90%;
-            max-width: 640px;
-        }
-        button {
-            padding: 10px 15px;
-            font-size: 1em;
-            margin: 5px;
-            cursor: pointer;
-            color: var(--button-text-color);
-            border: none;
-            border-radius: 5px;
-            transition: opacity 0.2s;
-        }
-        button:active { opacity: 0.7; }
-        #setupCameraButton { background-color: var(--button-primary-bg); }
-        #startButton { background-color: var(--button-secondary-bg); }
-        #resetButton { background-color: var(--button-danger-bg); }
-        #toggleDetectionModeButton { background-color: var(--button-warning-bg); }
-        #emailResultsButton, #themeToggleButton, #sendToSheetButton { background-color: var(--button-info-bg); }
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background 0.3s; }
         
-        button:disabled {
-            background-color: var(--disabled-bg-color) !important;
-            color: var(--disabled-text-color) !important;
-            cursor: not-allowed;
-        }
+        /* Flash effect for detection */
+        .detection-flash { animation: flash-white 0.2s ease-out; }
+        @keyframes flash-white { 0% { background-color: #fff; } 100% { background-color: var(--bg-color); } }
 
-        #settingsArea {
-            border: 1px solid var(--container-border);
-            padding: 15px;
-            background-color: var(--container-bg);
-            border-radius: 5px;
-        }
-        .setting-item {
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        input {
-            padding: 8px;
-            border: 1px solid var(--input-border);
-            background-color: var(--input-bg);
-            color: var(--input-text);
-            border-radius: 3px;
-        }
-        .result-entry {
-            border: 1px solid var(--result-entry-border);
-            padding: 10px;
-            margin-bottom: 10px;
-            background-color: var(--result-entry-bg);
-            border-radius: 5px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .result-entry img {
-            width: 100px;
-            height: 75px;
-            object-fit: cover;
-            border-radius: 3px;
-        }
-        #status { font-weight: bold; margin: 10px 0; font-size: 0.9em; }
+        #cameraContainer { position: relative; width: 90vw; max-width: 640px; height: calc(90vw * 0.75); max-height: 480px; border: 2px solid var(--text-color); margin-bottom: 15px; background: #333; overflow: hidden; border-radius: 8px; }
+        #cameraFeed { width: 100%; height: 100%; object-fit: cover; }
+        #finishLineOverlay { position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; background-color: var(--finish-line); transform: translateX(-50%); cursor: ew-resize; z-index: 10; display: none; }
+        
+        .panel { width: 90%; max-width: 640px; background: var(--container-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; transition: opacity 0.2s; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: var(--input-bg); color: var(--text-color); }
+
+        #setupCameraButton { background: var(--button-primary); }
+        #startButton { background: var(--button-success); }
+        #resetButton { background: var(--button-danger); }
+        #sendToSheetButton, #emailResultsButton, #themeToggleButton { background: var(--button-info); }
+
+        #resultsLog { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: var(--bg-color); }
+        .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; font-size: 0.9em; }
+        .result-entry img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #888; }
+        
         #frameCanvas { display: none; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     </style>
 </head>
 <body class="dark-mode">
@@ -187,7 +53,7 @@
 
     <div id="cameraContainer">
         <video id="cameraFeed" autoplay playsinline muted></video>
-        <div id="cameraPlaceholderText">Click "Setup Camera" to begin.</div>
+        <div id="cameraPlaceholderText" style="color: white; padding-top: 20%;">Setup Camera to begin.</div>
         <div id="finishLineOverlay"></div>
     </div>
     <canvas id="frameCanvas"></canvas>
@@ -195,13 +61,12 @@
     <div id="controls">
         <button id="setupCameraButton">Setup Camera</button>
         <button id="startButton" disabled>Start Race</button>
-        <button id="resetButton" disabled>Reset All</button>
+        <button id="resetButton" disabled>Reset</button>
     </div>
 
-    <div id="status">Status: Awaiting camera setup.</div>
+    <div id="status" style="margin: 10px 0; font-weight: bold;">Status: Awaiting camera setup.</div>
 
-    <div id="settingsArea" style="display:none;">
-        <h3>Race Settings</h3>
+    <div id="settingsArea" class="panel" style="display:none;">
         <div class="setting-item">
             <label>Number of Racers:</label>
             <input type="number" id="numRacersInput" value="2" min="1" max="20">
@@ -209,34 +74,28 @@
         <div id="runnerNamesAreaContainer"></div>
         <hr>
         <div class="setting-item">
-            <label>Mode: <strong id="currentDetectionMode">Object Detection</strong></label>
-            <button id="toggleDetectionModeButton">Switch Mode</button>
+            <span>Mode: <strong id="currentDetectionMode">Object Detection</strong></span>
+            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Toggle Mode</button>
         </div>
         <div id="pixelDiffSettings" style="display:none;">
-            <div class="setting-item">
-                <label>Sensitivity:</label>
-                <input type="number" id="detectionThresholdInput" value="200000" step="10000">
-            </div>
-        </div>
-        <div id="objectDetectionSettings">
-            <small>Uses AI to detect people crossing the line.</small>
+            <div class="setting-item"><label>Sensitivity:</label><input type="number" id="detectionThresholdInput" value="200000" step="10000"></div>
         </div>
     </div>
 
-    <div id="resultsArea">
-        <h2>Results</h2>
+    <div id="resultsArea" class="panel">
+        <h3>Race Results</h3>
         <div id="resultsLog"></div>
-        <div class="setting-item" style="justify-content: center;">
-            <label>Email to:</label>
+        <div class="setting-item" style="margin-top:15px; justify-content: center;">
+            <label>Email to: </label>
             <input type="email" id="recipientEmailInput" value="photofinish@deerlakeschool.ca">
         </div>
-        <button id="emailResultsButton" disabled>Email Results</button>
         <button id="sendToSheetButton" disabled>Send to Sheet</button>
+        <button id="emailResultsButton" disabled>Email Results</button>
         <button id="themeToggleButton">Toggle Theme</button>
     </div>
 
     <script>
-        // --- CONFIGURATION ---
+        // --- CONFIG ---
         const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynqZa0-SvprfOkAvL5nnGQeWU7sDBzgfH0SXVWm-kWQ6vJVejoWWR4K6v0aGbBIaWq/exec";
 
         const video = document.getElementById('cameraFeed');
@@ -244,38 +103,21 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const startButton = document.getElementById('startButton');
         const resetButton = document.getElementById('resetButton');
-        const resultsLog = document.getElementById('resultsLog');
         const statusDiv = document.getElementById('status');
+        const resultsLog = document.getElementById('resultsLog');
         const finishLineOverlay = document.getElementById('finishLineOverlay');
         const settingsAreaDiv = document.getElementById('settingsArea');
         const numRacersInput = document.getElementById('numRacersInput');
         const sendToSheetButton = document.getElementById('sendToSheetButton');
         const emailResultsButton = document.getElementById('emailResultsButton');
+        const recipientEmailInput = document.getElementById('recipientEmailInput');
 
         let stream, raceTimerActive = false, raceStartTime = 0;
-        let runnerCount = 0, MAX_RUNNERS = 2, runnerNames = [];
-        let animationFrameId, raceResults = [], detectionMode = 'object', modelReady = false, objectDetectionModel = null;
-        let previousFramePixelData = null, framesSinceLastDetection = 30, finishLinePercentX = 50;
+        let runnerCount = 0, MAX_RUNNERS = 2, raceResultsForSheet = [];
+        let detectionMode = 'object', modelReady = false, objectDetectionModel = null;
+        let previousFramePixelData = null, finishLinePercentX = 50, animationFrameId;
 
-        // Load saved results on startup
-        window.onload = () => {
-            const saved = localStorage.getItem('lastRaceResults');
-            if (saved) {
-                raceResults = JSON.parse(saved);
-                renderResults();
-                emailResultsButton.disabled = false;
-                sendToSheetButton.disabled = false;
-            }
-        };
-
-        async function loadModel() {
-            statusDiv.textContent = "Status: Loading AI Model...";
-            objectDetectionModel = await cocoSsd.load();
-            modelReady = true;
-            statusDiv.textContent = "Status: AI Ready. Camera active.";
-            startButton.disabled = false;
-        }
-
+        // --- CAMERA SETUP ---
         document.getElementById('setupCameraButton').onclick = async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
@@ -284,18 +126,126 @@
                     canvas.width = video.videoWidth;
                     canvas.height = video.videoHeight;
                     finishLineOverlay.style.display = 'block';
-                    document.getElementById('cameraPlaceholderText').style.display = 'none';
                     settingsAreaDiv.style.display = 'block';
+                    document.getElementById('cameraPlaceholderText').style.display = 'none';
                     document.getElementById('setupCameraButton').style.display = 'none';
-                    if(detectionMode === 'object') loadModel(); else startButton.disabled = false;
+                    if (detectionMode === 'object') loadModel(); else startButton.disabled = false;
                     requestAnimationFrame(processFrameLoop);
                 };
-            } catch (err) {
-                alert("Camera access denied.");
+            } catch (err) { alert("Camera access denied."); }
+        };
+
+        async function loadModel() {
+            statusDiv.textContent = "Status: Loading AI Model...";
+            objectDetectionModel = await cocoSsd.load();
+            modelReady = true;
+            statusDiv.textContent = "Status: AI Ready. Position line and Start.";
+            startButton.disabled = false;
+        }
+
+        // --- DETECTION LOOP ---
+        async function processFrameLoop() {
+            if (!video.videoWidth) return requestAnimationFrame(processFrameLoop);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            if (raceTimerActive && runnerCount < MAX_RUNNERS) {
+                const elapsed = (performance.now() - raceStartTime) / 1000;
+                statusDiv.textContent = `Timer: ${elapsed.toFixed(3)}s | Recorded: ${runnerCount}/${MAX_RUNNERS}`;
+                
+                let detected = false;
+                const lineX = (finishLinePercentX / 100) * canvas.width;
+
+                if (detectionMode === 'pixel') {
+                    const roi = ctx.getImageData(lineX - 2, 0, 5, canvas.height).data;
+                    if (previousFramePixelData) {
+                        let diff = 0;
+                        for (let i = 0; i < roi.length; i += 4) diff += Math.abs(roi[i] - previousFramePixelData[i]);
+                        if (diff > document.getElementById('detectionThresholdInput').value) detected = true;
+                    }
+                    previousFramePixelData = roi;
+                } else if (modelReady) {
+                    const predictions = await objectDetectionModel.detect(canvas);
+                    predictions.forEach(p => {
+                        if (p.class === 'person') {
+                            const centerX = p.bbox[0] + p.bbox[2] / 2;
+                            if (Math.abs(centerX - lineX) < 40) detected = true;
+                        }
+                    });
+                }
+
+                if (detected) triggerDetection(elapsed);
+            }
+            animationFrameId = requestAnimationFrame(processFrameLoop);
+        }
+
+        function triggerDetection(time) {
+            runnerCount++;
+            document.body.classList.add('detection-flash');
+            setTimeout(() => document.body.classList.remove('detection-flash'), 200);
+
+            const imgData = canvas.toDataURL('image/jpeg', 0.6);
+            const name = document.getElementById(`runnerNameInput${runnerCount - 1}`)?.value || `Runner ${runnerCount}`;
+            
+            const entry = document.createElement('div');
+            entry.className = 'result-entry';
+            entry.innerHTML = `<span><strong>${name}</strong>: ${time.toFixed(3)}s</span><img src="${imgData}">`;
+            resultsLog.appendChild(entry);
+            resultsLog.scrollTop = resultsLog.scrollHeight; // Auto-scroll
+
+            raceResultsForSheet.push({ runnerName: name, time: parseFloat(time.toFixed(3)), timestamp: new Date().toISOString() });
+
+            if (runnerCount >= MAX_RUNNERS) {
+                raceTimerActive = false;
+                statusDiv.textContent = "Status: Race Finished!";
+                resetButton.disabled = false;
+                emailResultsButton.disabled = false;
+                sendToSheetButton.disabled = false;
+            }
+        }
+
+        // --- BUTTON HANDLERS ---
+        startButton.onclick = () => {
+            MAX_RUNNERS = parseInt(numRacersInput.value);
+            raceResultsForSheet = [];
+            runnerCount = 0;
+            resultsLog.innerHTML = '';
+            raceTimerActive = true;
+            raceStartTime = performance.now();
+            startButton.disabled = true;
+            resetButton.disabled = false;
+            settingsAreaDiv.style.display = 'none';
+        };
+
+        resetButton.onclick = () => {
+            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = '';
+            raceResultsForSheet = [];
+            startButton.disabled = false; resetButton.disabled = true;
+            settingsAreaDiv.style.display = 'block';
+            statusDiv.textContent = "Status: Ready for new race.";
+        };
+
+        sendToSheetButton.onclick = async () => {
+            statusDiv.textContent = "Status: Sending to Sheet...";
+            try {
+                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Essential for GitHub Pages -> Google Apps Script
+                    body: JSON.stringify({ results: raceResultsForSheet })
+                });
+                statusDiv.textContent = "Status: Results Sent Successfully!";
+                alert("Sent to Google Sheets!");
+            } catch (e) {
+                statusDiv.textContent = "Status: Error sending to sheet.";
+                alert("Error: " + e.message);
             }
         };
 
-        // Finish Line Dragging
+        emailResultsButton.onclick = () => {
+            const body = raceResultsForSheet.map(r => `${r.runnerName}: ${r.time}s`).join('%0D%0A');
+            window.location.href = `mailto:${recipientEmailInput.value}?subject=Race Results&body=${body}`;
+        };
+
+        // --- FINISH LINE DRAG ---
         let isDragging = false;
         finishLineOverlay.onmousedown = () => isDragging = true;
         document.onmousemove = (e) => {
@@ -307,130 +257,15 @@
         };
         document.onmouseup = () => isDragging = false;
 
-        async function processFrameLoop() {
-            if (!video.videoWidth) return requestAnimationFrame(processFrameLoop);
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            if (raceTimerActive && runnerCount < MAX_RUNNERS) {
-                const elapsed = (performance.now() - raceStartTime) / 1000;
-                statusDiv.textContent = `Timer: ${elapsed.toFixed(3)}s | Runners: ${runnerCount}/${MAX_RUNNERS}`;
-                
-                framesSinceLastDetection++;
-                if (framesSinceLastDetection > 30) {
-                    let detected = false;
-                    const lineX = (finishLinePercentX / 100) * canvas.width;
-
-                    if (detectionMode === 'pixel') {
-                        // Simplified Pixel Diff
-                        const roi = ctx.getImageData(lineX - 2, 0, 5, canvas.height).data;
-                        if (previousFramePixelData) {
-                            let diff = 0;
-                            for (let i = 0; i < roi.length; i += 4) diff += Math.abs(roi[i] - previousFramePixelData[i]);
-                            if (diff > document.getElementById('detectionThresholdInput').value) detected = true;
-                        }
-                        previousFramePixelData = roi;
-                    } else if (modelReady) {
-                        const predictions = await objectDetectionModel.detect(canvas);
-                        predictions.forEach(p => {
-                            if (p.class === 'person') {
-                                const centerX = p.bbox[0] + p.bbox[2] / 2;
-                                if (Math.abs(centerX - lineX) < 40) detected = true;
-                            }
-                        });
-                    }
-
-                    if (detected) {
-                        triggerDetection(elapsed);
-                    }
-                }
-            }
-            requestAnimationFrame(processFrameLoop);
-        }
-
-        function triggerDetection(time) {
-            runnerCount++;
-            framesSinceLastDetection = 0;
-            
-            // Visual Flash
-            document.body.classList.add('flash-trigger');
-            setTimeout(() => document.body.classList.remove('flash-trigger'), 200);
-
-            const img = canvas.toDataURL('image/jpeg', 0.6);
-            const name = document.getElementById(`runnerNameInput${runnerCount - 1}`)?.value || `Runner ${runnerCount}`;
-            
-            const result = { name, time: time.toFixed(3), img, timestamp: new Date().toISOString() };
-            raceResults.push(result);
-            localStorage.setItem('lastRaceResults', JSON.stringify(raceResults));
-            
-            renderResults();
-            if (runnerCount >= MAX_RUNNERS) {
-                raceTimerActive = false;
-                statusDiv.textContent = "Race Finished!";
-                resetButton.disabled = false;
-                emailResultsButton.disabled = false;
-                sendToSheetButton.disabled = false;
-            }
-        }
-
-        function renderResults() {
-            resultsLog.innerHTML = raceResults.map(r => `
-                <div class="result-entry">
-                    <span><strong>${r.name}</strong>: ${r.time}s</span>
-                    <img src="${r.img}">
-                </div>
-            `).join('');
-            resultsLog.scrollTop = resultsLog.scrollHeight;
-        }
-
-        startButton.onclick = () => {
-            MAX_RUNNERS = parseInt(numRacersInput.value);
-            raceResults = [];
-            runnerCount = 0;
-            raceTimerActive = true;
-            raceStartTime = performance.now();
-            startButton.disabled = true;
-            resetButton.disabled = false;
-            resultsLog.innerHTML = '';
-            statusDiv.textContent = "Race Started...";
-        };
-
-        resetButton.onclick = () => {
-            if(confirm("Clear all results?")) {
-                raceResults = [];
-                localStorage.removeItem('lastRaceResults');
-                renderResults();
-                runnerCount = 0;
-                raceTimerActive = false;
-                startButton.disabled = false;
-                resetButton.disabled = true;
-                statusDiv.textContent = "Ready.";
-            }
-        };
-
-        sendToSheetButton.onclick = async () => {
-            statusDiv.textContent = "Sending to Google Sheets...";
-            try {
-                await fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    body: JSON.stringify({ results: raceResults })
-                });
-                statusDiv.textContent = "Sent successfully!";
-            } catch (e) {
-                statusDiv.textContent = "Error sending to sheet.";
-            }
-        };
-
-        // Name input generation
+        document.getElementById('themeToggleButton').onclick = () => document.body.classList.toggle('dark-mode');
+        
         numRacersInput.oninput = () => {
             const num = parseInt(numRacersInput.value);
-            runnerNamesAreaContainer.innerHTML = '';
+            runnerNamesAreaContainer.innerHTML = '<h4>Runner Names:</h4>';
             for(let i=0; i<num; i++) {
-                runnerNamesAreaContainer.innerHTML += `<div class="setting-item"><label>Racer ${i+1}:</label><input type="text" id="runnerNameInput${i}" placeholder="Name"></div>`;
+                runnerNamesAreaContainer.innerHTML += `<div class="setting-item"><span>#${i+1}</span><input type="text" id="runnerNameInput${i}" placeholder="Name"></div>`;
             }
         };
-
-        document.getElementById('themeToggleButton').onclick = () => document.body.classList.toggle('dark-mode');
     </script>
 </body>
 </html>
