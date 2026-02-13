@@ -115,6 +115,7 @@
         </div>
         <button id="sendToSheetButton" style="background: var(--button-primary);" disabled>Send to Sheet</button>
         <button id="emailResultsButton" style="background: var(--button-info);" disabled>Email Results</button>
+        <button id="themeToggleButton" style="background: var(--button-info);">Toggle Theme</button>
     </div>
 
     <script>
@@ -312,6 +313,8 @@
             const mailWin = window.open(mailtoUrl, '_self');
             setTimeout(() => { if (!mailWin || mailWin.closed) alert(text); }, 500);
         };
+
+        document.getElementById('themeToggleButton').onclick = () => document.body.classList.toggle('dark-mode');
 
         let isDragging = false;
         finishLineOverlay.onmousedown = () => isDragging = true;
