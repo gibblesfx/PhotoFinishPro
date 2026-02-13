@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLS PhotoFinish - Visual Pro</title>
+    <title>DLS PhotoFinish - Complete Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest"></script>
 
@@ -39,10 +39,10 @@
         #falseStartButton { background: #ff9800; display: none; }
         #resetButton { background: var(--button-danger); }
         
-        /* Visualizer Bars */
-        .meter-container { width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0; position: relative; }
-        #motionBar { height: 100%; width: 0%; background: #2196F3; transition: width 0.1s; }
-        #triggerThresholdLine { position: absolute; top: 0; bottom: 0; width: 2px; background: red; left: 50%; }
+        /* Visualizer */
+        .meter-container { width: 100%; height: 18px; background: #ddd; border-radius: 9px; overflow: hidden; margin: 8px 0; position: relative; border: 1px solid #999; }
+        #motionBar { height: 100%; width: 0%; background: #2196F3; }
+        #triggerThresholdLine { position: absolute; top: 0; bottom: 0; width: 2px; background: red; left: 40%; }
 
         #resultsLog { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: var(--bg-color); margin-bottom: 10px; }
         .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
@@ -53,21 +53,19 @@
         #photoModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); align-items: center; justify-content: center; flex-direction: column; }
         #modalImg { max-width: 95%; max-height: 70%; border: 2px solid white; }
         #modalLine { position: absolute; top: 0; bottom: 0; width: 2px; background-color: cyan; pointer-events: none; }
-        #modalInfo { color: white; margin-top: 15px; font-size: 1.1em; text-align: center; }
-        .close-modal { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }
     </style>
 </head>
 <body class="dark-mode">
 
-    <h2>DLS PhotoFinish Pro 2026</h2>
+    <h2>DLS PhotoFinish Pro</h2>
 
     <div id="photoModal">
-        <span class="close-modal" onclick="closeReview()">&times;</span>
+        <span style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer;" onclick="closeReview()">&times;</span>
         <div style="position: relative; display: inline-block;">
             <img id="modalImg">
             <div id="modalLine"></div>
         </div>
-        <div id="modalInfo"></div>
+        <div id="modalInfo" style="color:white; margin-top:10px;"></div>
         <div style="margin-top:10px;">
             <button onclick="nudgeTime(-0.01)" style="background:#444">Nudge -0.01s</button>
             <button onclick="nudgeTime(0.01)" style="background:#444">Nudge +0.01s</button>
@@ -101,19 +99,19 @@
         </div>
 
         <div id="pixelVisualizer" style="display:none;">
-            <label>Motion at Finish Line:</label>
+            <label>Live Motion:</label>
             <div class="meter-container">
                 <div id="motionBar"></div>
                 <div id="triggerThresholdLine"></div>
             </div>
             <div class="setting-item">
-                <label>Sensitivity:</label>
+                <label>Pixel Sensitivity:</label>
                 <input type="range" id="pixelThreshSlider" min="50000" max="500000" value="150000" step="5000">
             </div>
         </div>
 
         <div class="setting-item">
-            <label>Mic Threshold:</label>
+            <label>Mic Sensitivity:</label>
             <input type="range" id="micThreshold" min="5" max="100" value="40">
         </div>
 
@@ -128,7 +126,14 @@
     <div id="resultsArea" class="panel">
         <div id="resultsLog"></div>
         <button id="sendToSheetButton" style="background: var(--button-primary); width: 100%;" disabled>Send Heat to Google Sheet</button>
+        <button id="testConnectionButton" style="background: #9c27b0; width: 100%; margin-top:5px;">Test Google Connection</button>
         <button id="downloadMasterCSV" style="background: #009688; width: 100%; margin-top:10px;">Download Daily Log (CSV)</button>
+        
+        <div class="setting-item" style="margin-top:15px; background: rgba(0,0,0,0.1); padding: 10px; border-radius: 5px;">
+            <input type="email" id="recipientEmail" value="photofinish@deerlakeschool.ca" style="width: 60%; font-size: 0.8em;">
+            <button id="emailResultsButton" style="background: var(--button-info); font-size: 0.8em;" disabled>Email Results</button>
+        </div>
+
         <div style="display:flex; justify-content: space-between; margin-top:10px;">
             <button id="themeToggleButton" style="background: var(--button-info);">🌓 Theme</button>
             <button id="clearMasterButton" style="background: #555; font-size: 0.7em;">Clear Day Memory</button>
@@ -256,37 +261,24 @@
         async function processFrameLoop() {
             if (!video.videoWidth) return requestAnimationFrame(processFrameLoop);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
             const lineX = (finishLinePercentX / 100) * canvas.width;
             let detected = false;
 
-            // Handle Pixel Detection & Visualizer
             if (detectionMode === 'pixel' && previousFramePixelData) {
                 const currentROI = ctx.getImageData(lineX - 5, 0, 10, canvas.height).data;
                 let totalDiff = 0;
-                for (let i = 0; i < currentROI.length; i += 4) {
-                    totalDiff += Math.abs(currentROI[i] - previousFramePixelData[i]);
-                }
-                
-                // Update Visualizer
+                for (let i = 0; i < currentROI.length; i += 4) totalDiff += Math.abs(currentROI[i] - previousFramePixelData[i]);
                 const maxViz = 500000;
-                const percent = Math.min(100, (totalDiff / maxViz) * 100);
-                motionBar.style.width = percent + "%";
-                const threshPercent = (pixelSlider.value / maxViz) * 100;
-                threshLine.style.left = threshPercent + "%";
-
-                if (raceTimerActive && runnerCount < MAX_RUNNERS && totalDiff > pixelSlider.value) {
-                    detected = true;
-                }
+                motionBar.style.width = Math.min(100, (totalDiff / maxViz) * 100) + "%";
+                threshLine.style.left = (pixelSlider.value / maxViz) * 100 + "%";
+                if (raceTimerActive && runnerCount < MAX_RUNNERS && totalDiff > pixelSlider.value) detected = true;
             }
 
-            // Handle AI Detection
             if (raceTimerActive && runnerCount < MAX_RUNNERS && detectionMode === 'object' && modelReady) {
                 const predictions = await objectDetectionModel.detect(video);
                 predictions.forEach(p => {
                     if (p.class === 'person' && p.score > 0.4) {
-                        const centerX = p.bbox[0] + (p.bbox[2] / 2);
-                        if (Math.abs(centerX - lineX) < 50) detected = true;
+                        if (Math.abs((p.bbox[0] + p.bbox[2]/2) - lineX) < 50) detected = true;
                     }
                 });
             }
@@ -296,7 +288,6 @@
                 statusDiv.textContent = `RACING: ${elapsed.toFixed(3)}s | ${runnerCount}/${MAX_RUNNERS}`;
                 if (detected) triggerFinish(elapsed);
             }
-            
             requestAnimationFrame(processFrameLoop);
         }
 
@@ -304,7 +295,6 @@
             if (performance.now() - lastTriggerTime < 800) return;
             lastTriggerTime = performance.now();
             runnerCount++;
-
             document.body.classList.add('detection-flash');
             setTimeout(() => document.body.classList.remove('detection-flash'), 100);
 
@@ -315,7 +305,6 @@
             currentHeatResults.push(resultObj);
             masterDailyResults.push(resultObj);
             localStorage.setItem('DLS_MasterLog', JSON.stringify(masterDailyResults));
-
             updateResultsUI();
 
             if (runnerCount >= MAX_RUNNERS) {
@@ -324,6 +313,7 @@
                 statusDiv.textContent = "Status: HEAT FINISHED";
                 resetButton.disabled = false;
                 document.getElementById('sendToSheetButton').disabled = false;
+                document.getElementById('emailResultsButton').disabled = false;
             }
         }
 
@@ -356,6 +346,31 @@
 
         function closeReview() { document.getElementById('photoModal').style.display = "none"; }
 
+        document.getElementById('testConnectionButton').onclick = async () => {
+            statusDiv.textContent = "Status: Testing...";
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ test: true }) });
+                alert("Connection Test Successful.");
+            } catch (e) { alert("Connection Failed."); }
+            statusDiv.textContent = "Status: Ready.";
+        };
+
+        document.getElementById('sendToSheetButton').onclick = async () => {
+            statusDiv.textContent = "Status: Exporting...";
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: currentHeatResults }) });
+                alert("Heat Exported Successfully.");
+            } catch (e) { alert("Upload Failed."); }
+            statusDiv.textContent = "Status: Ready.";
+        };
+
+        document.getElementById('emailResultsButton').onclick = () => {
+            const email = document.getElementById('recipientEmail').value;
+            let body = "Race Results:\n\n";
+            currentHeatResults.forEach(r => body += `Heat ${r.heat} - ${r.runnerName}: ${r.time}s\n`);
+            window.location.href = `mailto:${email}?subject=PhotoFinish Results&body=${encodeURIComponent(body)}`;
+        };
+
         document.getElementById('downloadMasterCSV').onclick = () => {
             const csvRows = ["Heat,Name,Time,Timestamp"];
             masterDailyResults.forEach(r => csvRows.push(`${r.heat},${r.runnerName.replace(/,/g, "")},${r.time},${r.timestamp}`));
@@ -365,22 +380,13 @@
             a.href = url; a.download = `DLS_Daily_Log.csv`; a.click();
         };
 
-        document.getElementById('sendToSheetButton').onclick = async () => {
-            statusDiv.textContent = "Status: Uploading...";
-            try {
-                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: currentHeatResults }) });
-                alert("Heat Exported Successfully.");
-            } catch (e) { alert("Upload Failed."); }
-            statusDiv.textContent = "Status: Ready.";
-        };
-
         resetButton.onclick = () => {
-            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = ''; currentHeatResults = [];
+            currentHeatResults = []; runnerCount = 0; resultsLog.innerHTML = '';
             resetButton.disabled = true; startButton.disabled = false; armSoundButton.disabled = false;
             falseStartButton.style.display = 'none';
             settingsAreaDiv.style.display = 'block';
             document.getElementById('heatNumber').value = parseInt(document.getElementById('heatNumber').value) + 1;
-            statusDiv.textContent = "Status: Ready for next heat.";
+            statusDiv.textContent = "Status: Ready.";
             updateInputs();
         };
 
@@ -396,7 +402,6 @@
         }
         updateInputs();
 
-        // Drag-to-Move Finish Line
         let isDragging = false;
         finishLineOverlay.onmousedown = () => isDragging = true;
         document.onmousemove = (e) => {
