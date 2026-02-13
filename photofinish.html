@@ -29,8 +29,8 @@
         #finishLineOverlay { position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; background-color: var(--finish-line); transform: translateX(-50%); cursor: ew-resize; z-index: 10; display: none; }
         
         .panel { width: 90%; max-width: 640px; background: var(--container-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc; }
-        button { padding: 10px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; transition: 0.2s; }
-        button:hover { opacity: 0.8; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: var(--input-bg); color: var(--text-color); }
 
@@ -76,39 +76,39 @@
 
     <div id="controls">
         <button id="setupCameraButton">Setup Camera</button>
-        <button id="calibrateButton" style="display:none;">Calibrate Background</button>
+        <button id="calibrateButton" style="display:none;">Calibrate Track</button>
         <button id="startButton" disabled>Start Race</button>
-        <button id="resetButton" disabled>Reset Race</button>
+        <button id="resetButton" disabled>New Race / Reset</button>
     </div>
 
     <div id="status" style="margin: 10px 0; font-weight: bold; color: #ffeb3b;">Status: Awaiting setup.</div>
 
     <div id="settingsArea" class="panel" style="display:none;">
         <div class="setting-item">
-            <label>Expected Runners:</label>
+            <label>Runners in Heat:</label>
             <input type="number" id="numRacersInput" value="2" min="1" max="20">
         </div>
         <div id="runnerNamesAreaContainer"></div>
         <hr>
         <div class="setting-item">
             <span>Mode: <strong id="currentDetectionMode">Object Detection</strong></span>
-            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Switch Mode</button>
+            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Toggle Mode</button>
         </div>
 
         <div id="pixelDiffSettings" style="display:none;">
             <div class="setting-item">
-                <label>Sensitivity (Lower = More Sensitive):</label>
+                <label>Sensitivity (Lower = Faster/Noise):</label>
                 <input type="number" id="detectionThresholdInput" value="200000" step="10000">
             </div>
         </div>
     </div>
 
     <div id="resultsArea" class="panel">
-        <h3>Results (Click Photo to Enlarge)</h3>
+        <h3>Captured Times</h3>
         <div id="resultsLog"></div>
         
-        <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px;">
-            <button id="testTriggerButton" style="background: #673ab7; font-size: 0.8em;">Test Sheet Connection</button>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap;">
+            <button id="testTriggerButton" style="background: #673ab7; font-size: 0.8em;">Test Sheet</button>
             <button id="downloadCSVButton" style="background: #ff9800; font-size: 0.8em;">Download CSV Backup</button>
         </div>
 
@@ -117,7 +117,7 @@
         </div>
         <button id="sendToSheetButton" style="background: var(--button-primary);" disabled>Send to Sheet</button>
         <button id="emailResultsButton" style="background: var(--button-info);" disabled>Email Results</button>
-        <button id="themeToggleButton" style="background: var(--button-info);">Toggle Theme</button>
+        <button id="themeToggleButton" style="background: var(--button-info);">Theme</button>
     </div>
 
     <script>
@@ -135,7 +135,6 @@
         const settingsAreaDiv = document.getElementById('settingsArea');
         const toggleBtn = document.getElementById('toggleDetectionModeButton');
         const pixelPanel = document.getElementById('pixelDiffSettings');
-        const objectPanel = document.getElementById('objectDetectionSettings');
         const modeDisplay = document.getElementById('currentDetectionMode');
 
         let stream, raceTimerActive = false, raceStartTime = 0;
@@ -160,7 +159,7 @@
                     if (detectionMode === 'object') loadModel();
                     requestAnimationFrame(processFrameLoop);
                 };
-            } catch (err) { alert("Camera error: Ensure you are on HTTPS."); }
+            } catch (err) { alert("Camera error. Please ensure HTTPS and permissions."); }
         };
 
         async function loadModel() {
@@ -268,10 +267,14 @@
             raceResultsForSheet = []; runnerCount = 0; resultsLog.innerHTML = '';
             raceTimerActive = true; raceStartTime = performance.now();
             startButton.disabled = true; settingsAreaDiv.style.display = 'none';
+            resetButton.disabled = false;
         };
 
         resetButton.onclick = () => {
-            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = '';
+            if (raceResultsForSheet.length > 0) {
+                if (!confirm("Wipe all current results and start a new race?")) return;
+            }
+            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = ''; raceResultsForSheet = [];
             resetButton.disabled = true; settingsAreaDiv.style.display = 'block';
             statusDiv.textContent = "Status: Ready.";
             startButton.disabled = (detectionMode === 'pixel' && !previousFramePixelData);
@@ -280,30 +283,36 @@
         document.getElementById('testTriggerButton').onclick = async () => {
             statusDiv.textContent = "Status: Testing Connection...";
             try {
-                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: [{runnerName:"CONN_TEST", time:0, timestamp: new Date().toLocaleTimeString()}] }) });
-                alert("Connection Signal Sent! Check your Google Sheet.");
-                statusDiv.textContent = "Status: Connection Test Complete.";
-            } catch (e) { alert("Connection Failed: Check your URL and Internet."); }
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: [{runnerName:"TEST", time:0, timestamp: new Date().toLocaleTimeString()}] }) });
+                alert("Test Signal Sent.");
+                statusDiv.textContent = "Status: Ready.";
+            } catch (e) { alert("Test Failed."); }
         };
 
         document.getElementById('sendToSheetButton').onclick = async () => {
-            statusDiv.textContent = "Status: Uploading to Google...";
+            statusDiv.textContent = "Status: Uploading...";
             try {
                 await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: raceResultsForSheet }) });
                 alert("Data Uploaded Successfully.");
-            } catch (e) { alert("Upload Failed: " + e.message); }
+            } catch (e) { alert("Upload Failed."); }
             statusDiv.textContent = "Status: Ready.";
         };
 
         document.getElementById('downloadCSVButton').onclick = () => {
+            if (raceResultsForSheet.length === 0) { alert("No results to download!"); return; }
             const csvRows = ["Name,Time,Timestamp"];
-            raceResultsForSheet.forEach(r => csvRows.push(`${r.runnerName},${r.time},${r.timestamp}`));
+            raceResultsForSheet.forEach(r => csvRows.push(`${r.runnerName.replace(/,/g, "")},${r.time},${r.timestamp}`));
             const blob = new Blob([csvRows.join("\n")], { type: 'text/csv' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.setAttribute('href', url);
-            a.setAttribute('download', `race_results_${Date.now()}.csv`);
+            a.setAttribute('download', `DLS_Race_${Date.now()}.csv`);
             a.click();
+
+            const oldStatus = statusDiv.textContent;
+            statusDiv.textContent = "✅ CSV DOWNLOADED SUCCESSFULLY";
+            statusDiv.style.color = "#4CAF50";
+            setTimeout(() => { statusDiv.textContent = oldStatus; statusDiv.style.color = ""; }, 3000);
         };
 
         let isDragging = false;
@@ -320,7 +329,7 @@
         function updateInputs() {
             const num = parseInt(document.getElementById('numRacersInput').value);
             const container = document.getElementById('runnerNamesAreaContainer');
-            container.innerHTML = '<h4>Racer List:</h4>';
+            container.innerHTML = '<h4>Racer Names:</h4>';
             for(let i=0; i<num; i++) container.innerHTML += `<div class="setting-item"><input type="text" id="runnerNameInput${i}" placeholder="Lane ${i+1}"></div>`;
         }
         updateInputs();
