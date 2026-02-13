@@ -21,7 +21,6 @@
 
         body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; background-color: var(--bg-color); color: var(--text-color); transition: background 0.3s; }
         
-        /* Flash effect for detection */
         .detection-flash { animation: flash-white 0.2s ease-out; }
         @keyframes flash-white { 0% { background-color: #fff; } 100% { background-color: var(--bg-color); } }
 
@@ -30,19 +29,18 @@
         #finishLineOverlay { position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; background-color: var(--finish-line); transform: translateX(-50%); cursor: ew-resize; z-index: 10; display: none; }
         
         .panel { width: 90%; max-width: 640px; background: var(--container-bg); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ccc; }
-        button { padding: 10px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; transition: opacity 0.2s; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; background: var(--input-bg); color: var(--text-color); }
 
         #setupCameraButton { background: var(--button-primary); }
+        #calibrateButton { background: var(--button-info); }
         #startButton { background: var(--button-success); }
         #resetButton { background: var(--button-danger); }
-        #sendToSheetButton, #emailResultsButton, #themeToggleButton { background: var(--button-info); }
-
-        #resultsLog { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: var(--bg-color); }
-        .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; font-size: 0.9em; }
-        .result-entry img { width: 80px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #888; }
         
+        #resultsLog { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: var(--bg-color); margin-bottom: 10px; }
+        .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
+        .result-entry img { width: 80px; border-radius: 4px; border: 1px solid #888; }
         #frameCanvas { display: none; }
         .setting-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
     </style>
@@ -53,13 +51,14 @@
 
     <div id="cameraContainer">
         <video id="cameraFeed" autoplay playsinline muted></video>
-        <div id="cameraPlaceholderText" style="color: white; padding-top: 20%;">Setup Camera to begin.</div>
+        <div id="cameraPlaceholderText" style="color: white; padding-top: 20%; text-align:center;">1. Setup Camera to begin.</div>
         <div id="finishLineOverlay"></div>
     </div>
     <canvas id="frameCanvas"></canvas>
 
     <div id="controls">
         <button id="setupCameraButton">Setup Camera</button>
+        <button id="calibrateButton" style="display:none;">Calibrate</button>
         <button id="startButton" disabled>Start Race</button>
         <button id="resetButton" disabled>Reset</button>
     </div>
@@ -75,137 +74,182 @@
         <hr>
         <div class="setting-item">
             <span>Mode: <strong id="currentDetectionMode">Object Detection</strong></span>
-            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Toggle Mode</button>
+            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Switch to Pixel Diff</button>
         </div>
+
         <div id="pixelDiffSettings" style="display:none;">
-            <div class="setting-item"><label>Sensitivity:</label><input type="number" id="detectionThresholdInput" value="200000" step="10000"></div>
+            <div class="setting-item">
+                <label>Sensitivity:</label>
+                <input type="number" id="detectionThresholdInput" value="200000" step="10000">
+            </div>
+            <small>Pixel Mode requires clicking "Calibrate" before starting.</small>
+        </div>
+        <div id="objectDetectionSettings">
+            <small>AI Mode: Detects people shapes crossing the line.</small>
         </div>
     </div>
 
     <div id="resultsArea" class="panel">
         <h3>Race Results</h3>
         <div id="resultsLog"></div>
-        <div class="setting-item" style="margin-top:15px; justify-content: center;">
-            <label>Email to: </label>
-            <input type="email" id="recipientEmailInput" value="photofinish@deerlakeschool.ca">
+        
+        <div style="border: 1px dashed #888; padding: 10px; margin-bottom: 15px; border-radius: 4px; text-align: center;">
+            <small style="display:block; margin-bottom:5px;">Connection Check:</small>
+            <button id="testTriggerButton" style="background: #673ab7; font-size: 0.8em; padding: 5px 10px;">Test Sheet Trigger</button>
         </div>
-        <button id="sendToSheetButton" disabled>Send to Sheet</button>
-        <button id="emailResultsButton" disabled>Email Results</button>
-        <button id="themeToggleButton">Toggle Theme</button>
+
+        <div class="setting-item" style="justify-content: center;">
+            <input type="email" id="recipientEmailInput" value="photofinish@deerlakeschool.ca" style="width: 250px;">
+        </div>
+        <button id="sendToSheetButton" style="background: var(--button-info);" disabled>Send to Sheet</button>
+        <button id="emailResultsButton" style="background: var(--button-info);" disabled>Email Results</button>
+        <button id="themeToggleButton" style="background: var(--button-info);">Toggle Theme</button>
     </div>
 
     <script>
-        // --- CONFIG ---
-        const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynqZa0-SvprfOkAvL5nnGQeWU7sDBzgfH0SXVWm-kWQ6vJVejoWWR4K6v0aGbBIaWq/exec";
+        // --- IMPORTANT: Paste your Deployed Google Web App URL below ---
+        const GOOGLE_SHEET_WEB_APP_URL = "YOUR_DEPLOYED_URL_HERE";
 
         const video = document.getElementById('cameraFeed');
         const canvas = document.getElementById('frameCanvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const startButton = document.getElementById('startButton');
         const resetButton = document.getElementById('resetButton');
+        const calibrateButton = document.getElementById('calibrateButton');
         const statusDiv = document.getElementById('status');
         const resultsLog = document.getElementById('resultsLog');
         const finishLineOverlay = document.getElementById('finishLineOverlay');
         const settingsAreaDiv = document.getElementById('settingsArea');
-        const numRacersInput = document.getElementById('numRacersInput');
-        const sendToSheetButton = document.getElementById('sendToSheetButton');
-        const emailResultsButton = document.getElementById('emailResultsButton');
-        const recipientEmailInput = document.getElementById('recipientEmailInput');
+        const toggleBtn = document.getElementById('toggleDetectionModeButton');
+        const pixelPanel = document.getElementById('pixelDiffSettings');
+        const objectPanel = document.getElementById('objectDetectionSettings');
+        const modeDisplay = document.getElementById('currentDetectionMode');
 
         let stream, raceTimerActive = false, raceStartTime = 0;
         let runnerCount = 0, MAX_RUNNERS = 2, raceResultsForSheet = [];
         let detectionMode = 'object', modelReady = false, objectDetectionModel = null;
-        let previousFramePixelData = null, finishLinePercentX = 50, animationFrameId;
+        let previousFramePixelData = null, finishLinePercentX = 50;
 
-        // --- CAMERA SETUP ---
+        // --- INITIAL CAMERA SETUP ---
         document.getElementById('setupCameraButton').onclick = async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
                 video.onloadedmetadata = () => {
-                    canvas.width = video.videoWidth;
+                    canvas.width = video.videoWidth; 
                     canvas.height = video.videoHeight;
                     finishLineOverlay.style.display = 'block';
                     settingsAreaDiv.style.display = 'block';
+                    calibrateButton.style.display = 'inline-block';
                     document.getElementById('cameraPlaceholderText').style.display = 'none';
                     document.getElementById('setupCameraButton').style.display = 'none';
-                    if (detectionMode === 'object') loadModel(); else startButton.disabled = false;
+                    
+                    if (detectionMode === 'object') loadModel(); 
+                    else statusDiv.textContent = "Status: Position line and click Calibrate.";
+                    
                     requestAnimationFrame(processFrameLoop);
                 };
-            } catch (err) { alert("Camera access denied."); }
+            } catch (err) { alert("Camera access denied or error."); }
         };
 
         async function loadModel() {
             statusDiv.textContent = "Status: Loading AI Model...";
             objectDetectionModel = await cocoSsd.load();
             modelReady = true;
-            statusDiv.textContent = "Status: AI Ready. Position line and Start.";
+            statusDiv.textContent = "Status: AI Ready. Click Start.";
             startButton.disabled = false;
         }
 
-        // --- DETECTION LOOP ---
+        // --- MODE TOGGLE & CALIBRATION ---
+        toggleBtn.onclick = () => {
+            if (detectionMode === 'object') {
+                detectionMode = 'pixel';
+                modeDisplay.textContent = 'Pixel Difference';
+                pixelPanel.style.display = 'block';
+                objectPanel.style.display = 'none';
+                startButton.disabled = (previousFramePixelData === null);
+                statusDiv.textContent = previousFramePixelData ? "Status: Ready." : "Status: Calibrate needed.";
+            } else {
+                detectionMode = 'object';
+                modeDisplay.textContent = 'Object Detection';
+                pixelPanel.style.display = 'none';
+                objectPanel.style.display = 'block';
+                if (modelReady) startButton.disabled = false;
+                statusDiv.textContent = "Status: AI Mode Ready.";
+            }
+        };
+
+        calibrateButton.onclick = () => {
+            const lineX = (finishLinePercentX / 100) * canvas.width;
+            previousFramePixelData = ctx.getImageData(lineX - 2, 0, 5, canvas.height).data;
+            statusDiv.textContent = "Status: Calibrated. Ready to start.";
+            startButton.disabled = false;
+        };
+
+        // --- MAIN DETECTION LOOP ---
         async function processFrameLoop() {
             if (!video.videoWidth) return requestAnimationFrame(processFrameLoop);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             if (raceTimerActive && runnerCount < MAX_RUNNERS) {
                 const elapsed = (performance.now() - raceStartTime) / 1000;
-                statusDiv.textContent = `Timer: ${elapsed.toFixed(3)}s | Recorded: ${runnerCount}/${MAX_RUNNERS}`;
+                statusDiv.textContent = `Race: ${elapsed.toFixed(3)}s | Recorded: ${runnerCount}/${MAX_RUNNERS}`;
                 
                 let detected = false;
                 const lineX = (finishLinePercentX / 100) * canvas.width;
 
-                if (detectionMode === 'pixel') {
+                if (detectionMode === 'pixel' && previousFramePixelData) {
                     const roi = ctx.getImageData(lineX - 2, 0, 5, canvas.height).data;
-                    if (previousFramePixelData) {
-                        let diff = 0;
-                        for (let i = 0; i < roi.length; i += 4) diff += Math.abs(roi[i] - previousFramePixelData[i]);
-                        if (diff > document.getElementById('detectionThresholdInput').value) detected = true;
+                    let diff = 0;
+                    for (let i = 0; i < roi.length; i += 4) {
+                        diff += Math.abs(roi[i] - previousFramePixelData[i]);
                     }
-                    previousFramePixelData = roi;
-                } else if (modelReady) {
+                    if (diff > document.getElementById('detectionThresholdInput').value) detected = true;
+                } 
+                else if (detectionMode === 'object' && modelReady) {
                     const predictions = await objectDetectionModel.detect(canvas);
                     predictions.forEach(p => {
                         if (p.class === 'person') {
-                            const centerX = p.bbox[0] + p.bbox[2] / 2;
+                            const centerX = p.bbox[0] + (p.bbox[2] / 2);
                             if (Math.abs(centerX - lineX) < 40) detected = true;
                         }
                     });
                 }
 
-                if (detected) triggerDetection(elapsed);
+                if (detected) triggerFinish(elapsed);
             }
-            animationFrameId = requestAnimationFrame(processFrameLoop);
+            requestAnimationFrame(processFrameLoop);
         }
 
-        function triggerDetection(time) {
+        function triggerFinish(time) {
             runnerCount++;
             document.body.classList.add('detection-flash');
             setTimeout(() => document.body.classList.remove('detection-flash'), 200);
 
             const imgData = canvas.toDataURL('image/jpeg', 0.6);
-            const name = document.getElementById(`runnerNameInput${runnerCount - 1}`)?.value || `Runner ${runnerCount}`;
+            const nameInput = document.getElementById(`runnerNameInput${runnerCount - 1}`);
+            const name = nameInput && nameInput.value ? nameInput.value : `Runner ${runnerCount}`;
             
             const entry = document.createElement('div');
             entry.className = 'result-entry';
             entry.innerHTML = `<span><strong>${name}</strong>: ${time.toFixed(3)}s</span><img src="${imgData}">`;
             resultsLog.appendChild(entry);
-            resultsLog.scrollTop = resultsLog.scrollHeight; // Auto-scroll
+            resultsLog.scrollTop = resultsLog.scrollHeight;
 
-            raceResultsForSheet.push({ runnerName: name, time: parseFloat(time.toFixed(3)), timestamp: new Date().toISOString() });
+            raceResultsForSheet.push({ runnerName: name, time: parseFloat(time.toFixed(3)), timestamp: new Date().toLocaleString() });
 
             if (runnerCount >= MAX_RUNNERS) {
                 raceTimerActive = false;
-                statusDiv.textContent = "Status: Race Finished!";
+                statusDiv.textContent = "Status: All Runners Finished!";
                 resetButton.disabled = false;
-                emailResultsButton.disabled = false;
-                sendToSheetButton.disabled = false;
+                document.getElementById('sendToSheetButton').disabled = false;
+                document.getElementById('emailResultsButton').disabled = false;
             }
         }
 
-        // --- BUTTON HANDLERS ---
+        // --- BUTTON ACTIONS ---
         startButton.onclick = () => {
-            MAX_RUNNERS = parseInt(numRacersInput.value);
+            MAX_RUNNERS = parseInt(document.getElementById('numRacersInput').value);
             raceResultsForSheet = [];
             runnerCount = 0;
             resultsLog.innerHTML = '';
@@ -217,35 +261,39 @@
         };
 
         resetButton.onclick = () => {
-            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = '';
-            raceResultsForSheet = [];
-            startButton.disabled = false; resetButton.disabled = true;
+            raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = ''; raceResultsForSheet = [];
+            startButton.disabled = (detectionMode === 'pixel' && !previousFramePixelData) ? true : false;
+            resetButton.disabled = true;
             settingsAreaDiv.style.display = 'block';
             statusDiv.textContent = "Status: Ready for new race.";
         };
 
-        sendToSheetButton.onclick = async () => {
-            statusDiv.textContent = "Status: Sending to Sheet...";
+        document.getElementById('testTriggerButton').onclick = async () => {
+            const testData = [{ runnerName: "SYSTEM_TEST", time: 0.000, timestamp: new Date().toLocaleString() }];
+            statusDiv.textContent = "Status: Sending Test...";
             try {
-                const response = await fetch(GOOGLE_SHEET_WEB_APP_URL, {
-                    method: 'POST',
-                    mode: 'no-cors', // Essential for GitHub Pages -> Google Apps Script
-                    body: JSON.stringify({ results: raceResultsForSheet })
-                });
-                statusDiv.textContent = "Status: Results Sent Successfully!";
-                alert("Sent to Google Sheets!");
-            } catch (e) {
-                statusDiv.textContent = "Status: Error sending to sheet.";
-                alert("Error: " + e.message);
-            }
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: testData }) });
+                alert("Test sent! Check your Google Sheet for 'SYSTEM_TEST'.");
+            } catch (e) { alert("Test Failed: " + e.message); }
+            statusDiv.textContent = "Status: Ready.";
         };
 
-        emailResultsButton.onclick = () => {
-            const body = raceResultsForSheet.map(r => `${r.runnerName}: ${r.time}s`).join('%0D%0A');
-            window.location.href = `mailto:${recipientEmailInput.value}?subject=Race Results&body=${body}`;
+        document.getElementById('sendToSheetButton').onclick = async () => {
+            statusDiv.textContent = "Status: Exporting Results...";
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: raceResultsForSheet }) });
+                alert(raceResultsForSheet.length + " results sent to Google Sheet!");
+            } catch (e) { alert("Error: " + e.message); }
+            statusDiv.textContent = "Status: Export Complete.";
         };
 
-        // --- FINISH LINE DRAG ---
+        document.getElementById('emailResultsButton').onclick = () => {
+            const currentRecipientEmail = document.getElementById('recipientEmailInput').value;
+            const body = "Race Results:%0D%0A" + raceResultsForSheet.map(r => `${r.runnerName}: ${r.time}s`).join('%0D%0A');
+            window.location.href = `mailto:${currentRecipientEmail}?subject=Race Results&body=${body}`;
+        };
+
+        // --- UI UTILS ---
         let isDragging = false;
         finishLineOverlay.onmousedown = () => isDragging = true;
         document.onmousemove = (e) => {
@@ -256,16 +304,19 @@
             finishLineOverlay.style.left = finishLinePercentX + "%";
         };
         document.onmouseup = () => isDragging = false;
-
+        
         document.getElementById('themeToggleButton').onclick = () => document.body.classList.toggle('dark-mode');
         
-        numRacersInput.oninput = () => {
-            const num = parseInt(numRacersInput.value);
-            runnerNamesAreaContainer.innerHTML = '<h4>Runner Names:</h4>';
+        document.getElementById('numRacersInput').oninput = updateRunnerInputs;
+        function updateRunnerInputs() {
+            const num = parseInt(document.getElementById('numRacersInput').value);
+            const container = document.getElementById('runnerNamesAreaContainer');
+            container.innerHTML = '<h4>Runner Names:</h4>';
             for(let i=0; i<num; i++) {
-                runnerNamesAreaContainer.innerHTML += `<div class="setting-item"><span>#${i+1}</span><input type="text" id="runnerNameInput${i}" placeholder="Name"></div>`;
+                container.innerHTML += `<div class="setting-item"><span>#${i+1}</span><input type="text" id="runnerNameInput${i}" placeholder="Name"></div>`;
             }
-        };
+        }
+        updateRunnerInputs();
     </script>
 </body>
 </html>
