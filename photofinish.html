@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLS PhotoFinish - Meet Director Edition</title>
+    <title>DLS PhotoFinish - Visual Pro</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest"></script>
 
@@ -36,8 +36,14 @@
         #calibrateButton { background: var(--button-info); }
         #armSoundButton { background: #673ab7; }
         #startButton { background: var(--button-success); }
+        #falseStartButton { background: #ff9800; display: none; }
         #resetButton { background: var(--button-danger); }
         
+        /* Visualizer Bars */
+        .meter-container { width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0; position: relative; }
+        #motionBar { height: 100%; width: 0%; background: #2196F3; transition: width 0.1s; }
+        #triggerThresholdLine { position: absolute; top: 0; bottom: 0; width: 2px; background: red; left: 50%; }
+
         #resultsLog { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: var(--bg-color); margin-bottom: 10px; }
         .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
         .result-entry img { width: 80px; border-radius: 4px; border: 1px solid #888; cursor: zoom-in; }
@@ -49,7 +55,6 @@
         #modalLine { position: absolute; top: 0; bottom: 0; width: 2px; background-color: cyan; pointer-events: none; }
         #modalInfo { color: white; margin-top: 15px; font-size: 1.1em; text-align: center; }
         .close-modal { position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer; }
-        .nudge-controls { margin-top: 10px; display: flex; gap: 15px; }
     </style>
 </head>
 <body class="dark-mode">
@@ -63,7 +68,7 @@
             <div id="modalLine"></div>
         </div>
         <div id="modalInfo"></div>
-        <div class="nudge-controls">
+        <div style="margin-top:10px;">
             <button onclick="nudgeTime(-0.01)" style="background:#444">Nudge -0.01s</button>
             <button onclick="nudgeTime(0.01)" style="background:#444">Nudge +0.01s</button>
         </div>
@@ -83,6 +88,7 @@
             <button id="calibrateButton" style="display:none;">Calibrate Pixel Mode</button>
             <button id="armSoundButton" style="display:none;">Arm Sound Start</button>
             <button id="startButton" disabled>Manual Start</button>
+            <button id="falseStartButton">FALSE START / ABORT</button>
             <button id="resetButton" disabled>Reset Heat</button>
         </div>
         <div id="status" style="margin-top: 10px; font-weight: bold; color: #ffeb3b; text-align: center;">Status: Ready for setup.</div>
@@ -90,27 +96,43 @@
 
     <div id="settingsArea" class="panel" style="display:none;">
         <div class="setting-item">
+            <span>Mode: <strong id="modeLabel">Object Detection</strong></span>
+            <button id="toggleDetectionModeButton" style="background: var(--button-info);">Switch Mode</button>
+        </div>
+
+        <div id="pixelVisualizer" style="display:none;">
+            <label>Motion at Finish Line:</label>
+            <div class="meter-container">
+                <div id="motionBar"></div>
+                <div id="triggerThresholdLine"></div>
+            </div>
+            <div class="setting-item">
+                <label>Sensitivity:</label>
+                <input type="range" id="pixelThreshSlider" min="50000" max="500000" value="150000" step="5000">
+            </div>
+        </div>
+
+        <div class="setting-item">
+            <label>Mic Threshold:</label>
+            <input type="range" id="micThreshold" min="5" max="100" value="40">
+        </div>
+
+        <div class="setting-item">
             <label>Runners:</label>
             <input type="number" id="numRacersInput" value="2" min="1" max="20" style="width: 60px;">
             <span>Heat #: <input type="number" id="heatNumber" value="1" style="width: 50px;"></span>
         </div>
         <div id="runnerNamesAreaContainer"></div>
-        <hr>
-        <div class="setting-item">
-            <label>Mic Threshold:</label>
-            <input type="range" id="micThreshold" min="10" max="100" value="45">
-            <button id="toggleDetectionModeButton" style="background: var(--button-info); font-size: 0.8em;">Toggle AI/Pixel</button>
-        </div>
     </div>
 
     <div id="resultsArea" class="panel">
         <div id="resultsLog"></div>
         <button id="sendToSheetButton" style="background: var(--button-primary); width: 100%;" disabled>Send Heat to Google Sheet</button>
-        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px;">
-            <button id="downloadMasterCSV" style="background: #009688; flex:1;">Download Daily Log (CSV)</button>
-            <button id="themeToggleButton" style="background: var(--button-info);">🌓</button>
+        <button id="downloadMasterCSV" style="background: #009688; width: 100%; margin-top:10px;">Download Daily Log (CSV)</button>
+        <div style="display:flex; justify-content: space-between; margin-top:10px;">
+            <button id="themeToggleButton" style="background: var(--button-info);">🌓 Theme</button>
+            <button id="clearMasterButton" style="background: #555; font-size: 0.7em;">Clear Day Memory</button>
         </div>
-        <button id="clearMasterButton" style="background: #555; width: 100%; margin-top:10px; font-size: 0.7em;">Clear Daily Memory</button>
     </div>
 
     <script>
@@ -121,11 +143,16 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const startButton = document.getElementById('startButton');
         const armSoundButton = document.getElementById('armSoundButton');
+        const falseStartButton = document.getElementById('falseStartButton');
         const resetButton = document.getElementById('resetButton');
         const statusDiv = document.getElementById('status');
         const resultsLog = document.getElementById('resultsLog');
         const finishLineOverlay = document.getElementById('finishLineOverlay');
         const settingsAreaDiv = document.getElementById('settingsArea');
+        const modeLabel = document.getElementById('modeLabel');
+        const motionBar = document.getElementById('motionBar');
+        const threshLine = document.getElementById('triggerThresholdLine');
+        const pixelSlider = document.getElementById('pixelThreshSlider');
 
         let raceTimerActive = false, raceStartTime = 0;
         let runnerCount = 0, MAX_RUNNERS = 2;
@@ -146,7 +173,6 @@
                     audio: true 
                 });
                 video.srcObject = stream;
-                
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser();
                 audioCtx.createMediaStreamSource(stream).connect(analyser);
@@ -158,14 +184,22 @@
                     settingsAreaDiv.style.display = 'block';
                     armSoundButton.style.display = 'inline-block';
                     document.getElementById('calibrateButton').style.display = 'inline-block';
-                    document.getElementById('cameraPlaceholderText').style.display = 'none';
                     document.getElementById('setupCameraButton').style.display = 'none';
-                    if (detectionMode === 'object') loadModel();
+                    document.getElementById('cameraPlaceholderText').style.display = 'none';
+                    loadModel();
                     requestAnimationFrame(processFrameLoop);
                     requestAnimationFrame(monitorSound);
                 };
-            } catch (err) { alert("Hardware Error: Check permissions."); }
+            } catch (err) { alert("Mic/Cam Error."); }
         };
+
+        async function loadModel() {
+            statusDiv.textContent = "Status: Loading AI...";
+            objectDetectionModel = await cocoSsd.load();
+            modelReady = true;
+            statusDiv.textContent = "Status: System Ready.";
+            startButton.disabled = false;
+        }
 
         function monitorSound() {
             if (soundArmed) {
@@ -179,21 +213,6 @@
             requestAnimationFrame(monitorSound);
         }
 
-        armSoundButton.onclick = () => {
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            soundArmed = true;
-            statusDiv.textContent = "Status: LISTENING FOR START...";
-            armSoundButton.disabled = startButton.disabled = true;
-        };
-
-        async function loadModel() {
-            statusDiv.textContent = "Status: Loading AI...";
-            objectDetectionModel = await cocoSsd.load();
-            modelReady = true;
-            statusDiv.textContent = "Status: System Ready.";
-            startButton.disabled = false;
-        }
-
         function startRace() {
             MAX_RUNNERS = parseInt(document.getElementById('numRacersInput').value);
             currentHeatResults = []; runnerCount = 0; resultsLog.innerHTML = '';
@@ -201,45 +220,88 @@
             settingsAreaDiv.style.display = 'none';
             statusDiv.textContent = "Status: RACING!";
             startButton.disabled = armSoundButton.disabled = true;
+            falseStartButton.style.display = 'inline-block';
         }
 
         startButton.onclick = startRace;
+        armSoundButton.onclick = () => {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            soundArmed = true;
+            statusDiv.textContent = "Status: LISTENING FOR START...";
+            armSoundButton.disabled = startButton.disabled = true;
+            falseStartButton.style.display = 'inline-block';
+        };
+
+        falseStartButton.onclick = () => {
+            raceTimerActive = false;
+            soundArmed = false;
+            statusDiv.textContent = "Status: ABORTED.";
+            falseStartButton.style.display = 'none';
+            startButton.disabled = armSoundButton.disabled = false;
+            settingsAreaDiv.style.display = 'block';
+        };
+
+        document.getElementById('toggleDetectionModeButton').onclick = () => {
+            detectionMode = (detectionMode === 'object') ? 'pixel' : 'object';
+            modeLabel.textContent = (detectionMode === 'object') ? "Object Detection" : "Pixel Difference";
+            document.getElementById('pixelVisualizer').style.display = (detectionMode === 'pixel') ? 'block' : 'none';
+        };
+
+        document.getElementById('calibrateButton').onclick = () => {
+            const lineX = (finishLinePercentX / 100) * canvas.width;
+            previousFramePixelData = ctx.getImageData(lineX - 5, 0, 10, canvas.height).data;
+            statusDiv.textContent = "Status: Calibrated.";
+        };
 
         async function processFrameLoop() {
             if (!video.videoWidth) return requestAnimationFrame(processFrameLoop);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+            const lineX = (finishLinePercentX / 100) * canvas.width;
+            let detected = false;
+
+            // Handle Pixel Detection & Visualizer
+            if (detectionMode === 'pixel' && previousFramePixelData) {
+                const currentROI = ctx.getImageData(lineX - 5, 0, 10, canvas.height).data;
+                let totalDiff = 0;
+                for (let i = 0; i < currentROI.length; i += 4) {
+                    totalDiff += Math.abs(currentROI[i] - previousFramePixelData[i]);
+                }
+                
+                // Update Visualizer
+                const maxViz = 500000;
+                const percent = Math.min(100, (totalDiff / maxViz) * 100);
+                motionBar.style.width = percent + "%";
+                const threshPercent = (pixelSlider.value / maxViz) * 100;
+                threshLine.style.left = threshPercent + "%";
+
+                if (raceTimerActive && runnerCount < MAX_RUNNERS && totalDiff > pixelSlider.value) {
+                    detected = true;
+                }
+            }
+
+            // Handle AI Detection
+            if (raceTimerActive && runnerCount < MAX_RUNNERS && detectionMode === 'object' && modelReady) {
+                const predictions = await objectDetectionModel.detect(video);
+                predictions.forEach(p => {
+                    if (p.class === 'person' && p.score > 0.4) {
+                        const centerX = p.bbox[0] + (p.bbox[2] / 2);
+                        if (Math.abs(centerX - lineX) < 50) detected = true;
+                    }
+                });
+            }
+
             if (raceTimerActive && runnerCount < MAX_RUNNERS) {
                 const elapsed = (performance.now() - raceStartTime) / 1000;
                 statusDiv.textContent = `RACING: ${elapsed.toFixed(3)}s | ${runnerCount}/${MAX_RUNNERS}`;
-                
-                let detected = false;
-                const lineX = (finishLinePercentX / 100) * canvas.width;
-
-                if (detectionMode === 'pixel' && previousFramePixelData) {
-                    const currentROI = ctx.getImageData(lineX - 5, 0, 10, canvas.height).data;
-                    let totalDiff = 0;
-                    for (let i = 0; i < currentROI.length; i += 4) {
-                        let d = Math.abs(currentROI[i] - previousFramePixelData[i]);
-                        if (d > 35) totalDiff += d;
-                    }
-                    if (totalDiff > 200000) detected = true;
-                } else if (detectionMode === 'object' && modelReady) {
-                    const predictions = await objectDetectionModel.detect(video);
-                    predictions.forEach(p => {
-                        if (p.class === 'person' && p.score > 0.4) {
-                            const centerX = p.bbox[0] + (p.bbox[2] / 2);
-                            if (Math.abs(centerX - lineX) < 50) detected = true;
-                        }
-                    });
-                }
                 if (detected) triggerFinish(elapsed);
             }
+            
             requestAnimationFrame(processFrameLoop);
         }
 
         function triggerFinish(time) {
-            if (performance.now() - lastTriggerTime < 500) return;
+            if (performance.now() - lastTriggerTime < 800) return;
             lastTriggerTime = performance.now();
             runnerCount++;
 
@@ -252,12 +314,13 @@
 
             currentHeatResults.push(resultObj);
             masterDailyResults.push(resultObj);
-            saveToStorage();
+            localStorage.setItem('DLS_MasterLog', JSON.stringify(masterDailyResults));
 
             updateResultsUI();
 
             if (runnerCount >= MAX_RUNNERS) {
                 raceTimerActive = false;
+                falseStartButton.style.display = 'none';
                 statusDiv.textContent = "Status: HEAT FINISHED";
                 resetButton.disabled = false;
                 document.getElementById('sendToSheetButton').disabled = false;
@@ -288,12 +351,10 @@
             currentHeatResults[reviewIndex].time = parseFloat((currentHeatResults[reviewIndex].time + amount).toFixed(3));
             document.getElementById('modalInfo').innerHTML = `<strong>${currentHeatResults[reviewIndex].runnerName}</strong> | Time: ${currentHeatResults[reviewIndex].time}s (Nudged)`;
             updateResultsUI();
-            saveToStorage();
+            localStorage.setItem('DLS_MasterLog', JSON.stringify(masterDailyResults));
         }
 
         function closeReview() { document.getElementById('photoModal').style.display = "none"; }
-
-        function saveToStorage() { localStorage.setItem('DLS_MasterLog', JSON.stringify(masterDailyResults)); }
 
         document.getElementById('downloadMasterCSV').onclick = () => {
             const csvRows = ["Heat,Name,Time,Timestamp"];
@@ -316,14 +377,17 @@
         resetButton.onclick = () => {
             raceTimerActive = false; runnerCount = 0; resultsLog.innerHTML = ''; currentHeatResults = [];
             resetButton.disabled = true; startButton.disabled = false; armSoundButton.disabled = false;
+            falseStartButton.style.display = 'none';
             settingsAreaDiv.style.display = 'block';
             document.getElementById('heatNumber').value = parseInt(document.getElementById('heatNumber').value) + 1;
-            statusDiv.textContent = "Status: Waiting for next start.";
+            statusDiv.textContent = "Status: Ready for next heat.";
+            updateInputs();
         };
 
-        document.getElementById('clearMasterButton').onclick = () => { if(confirm("Clear daily history?")) { masterDailyResults = []; localStorage.removeItem('DLS_MasterLog'); alert("Cleared."); } };
+        document.getElementById('clearMasterButton').onclick = () => { if(confirm("Clear day memory?")) { masterDailyResults = []; localStorage.removeItem('DLS_MasterLog'); alert("Cleared."); } };
         document.getElementById('themeToggleButton').onclick = () => document.body.classList.toggle('dark-mode');
         document.getElementById('numRacersInput').oninput = updateInputs;
+        
         function updateInputs() {
             const num = parseInt(document.getElementById('numRacersInput').value);
             const container = document.getElementById('runnerNamesAreaContainer');
@@ -331,6 +395,17 @@
             for(let i=0; i<num; i++) container.innerHTML += `<div class="setting-item"><input type="text" id="runnerNameInput${i}" placeholder="Lane ${i+1}"></div>`;
         }
         updateInputs();
+
+        // Drag-to-Move Finish Line
+        let isDragging = false;
+        finishLineOverlay.onmousedown = () => isDragging = true;
+        document.onmousemove = (e) => {
+            if (!isDragging) return;
+            const rect = document.getElementById('cameraContainer').getBoundingClientRect();
+            finishLinePercentX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            finishLineOverlay.style.left = finishLinePercentX + "%";
+        };
+        document.onmouseup = () => isDragging = false;
     </script>
 </body>
 </html>
