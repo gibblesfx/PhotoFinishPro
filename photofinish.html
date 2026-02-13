@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLS PhotoFinish Pro - 2026 Complete</title>
+    <title>DLS PhotoFinish Pro - Name After Race</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest"></script>
 
@@ -36,9 +36,10 @@
         #motionBar { height: 100%; width: 0%; background: #2196F3; }
         #triggerThresholdLine { position: absolute; top: 0; bottom: 0; width: 2px; background: red; left: 40%; }
 
-        #resultsLog { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: var(--bg-color); margin-bottom: 10px; border-radius: 4px; }
+        #resultsLog { max-height: 250px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: var(--bg-color); margin-bottom: 10px; border-radius: 4px; }
         .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
         .result-entry img { width: 80px; border-radius: 4px; border: 1px solid #888; cursor: zoom-in; }
+        .name-tag { cursor: pointer; color: var(--button-primary); text-decoration: underline; font-weight: bold; }
 
         #photoModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); align-items: center; justify-content: center; flex-direction: column; }
         #modalImg { max-width: 90%; max-height: 70%; border: 2px solid white; }
@@ -87,29 +88,19 @@
             <span>Mode: <strong id="modeLabel">Object Detection</strong></span>
             <button id="toggleModeBtn" style="background:var(--button-info);">Switch Mode</button>
         </div>
-
         <div id="pixelViz" style="display:none;">
-            <div class="meter-container">
-                <div id="motionBar"></div>
-                <div id="triggerThresholdLine"></div>
-            </div>
+            <div class="meter-container"><div id="motionBar"></div><div id="triggerThresholdLine"></div></div>
             <input type="range" id="pixelThresh" min="50000" max="500000" value="150000" style="width:100%;">
         </div>
-
-        <div class="setting-item">
-            <label>Mic Sensitivity:</label>
-            <input type="range" id="micThresh" min="5" max="100" value="40">
-        </div>
-
         <div class="setting-item">
             <span>Heat #: <input type="number" id="heatNum" value="1" style="width:50px;"></span>
             <span>Runners: <input type="number" id="numRacers" value="2" style="width:50px;"></span>
         </div>
-        <div id="nameInputs"></div>
     </div>
 
     <div class="panel">
         <div id="resultsLog"></div>
+        <p style="font-size: 0.8em; text-align:center; opacity: 0.7;">Tip: Click a name to rename runner after the finish.</p>
         <button id="sendBtn" style="background:var(--button-primary); width:100%;" disabled>Send Heat to Google Sheet</button>
         <button id="testBtn" style="background:#9c27b0; width:100%; margin-top:5px;">Test Google Connection</button>
         <button id="csvBtn" style="background:#009688; width:100%; margin-top:10px;">Download Daily Log (CSV)</button>
@@ -130,7 +121,6 @@
         let audioCtx, analyser, dataArray, reviewIdx = -1, detectionMode = 'object';
         let masterLog = JSON.parse(localStorage.getItem('DLS_MasterLog')) || [];
 
-        // Setup Hardware
         document.getElementById('setupBtn').onclick = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: 1280, height: 720 }, audio: true });
@@ -138,14 +128,10 @@
                 audioCtx = new AudioContext(); analyser = audioCtx.createAnalyser();
                 audioCtx.createMediaStreamSource(stream).connect(analyser);
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
-                
                 video.onloadedmetadata = () => {
                     canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                    overlay.style.display = 'block';
-                    document.getElementById('settings').style.display = 'block';
-                    document.getElementById('armBtn').style.display = 'inline-block';
-                    document.getElementById('setupBtn').style.display = 'none';
-                    status.textContent = "Loading AI...";
+                    overlay.style.display = 'block'; document.getElementById('settings').style.display = 'block';
+                    document.getElementById('armBtn').style.display = 'inline-block'; document.getElementById('setupBtn').style.display = 'none';
                     cocoSsd.load().then(m => { model = m; document.getElementById('startBtn').disabled = false; status.textContent = "System Ready."; });
                     requestAnimationFrame(loop);
                 };
@@ -155,8 +141,7 @@
         function startRace() {
             currentResults = []; runnersTriggered = 0; resultsLog.innerHTML = '';
             raceActive = true; startTime = performance.now();
-            document.getElementById('startBtn').disabled = true;
-            document.getElementById('armBtn').disabled = true;
+            document.getElementById('startBtn').disabled = true; document.getElementById('armBtn').disabled = true;
             document.getElementById('falseStartBtn').style.display = 'inline-block';
             document.getElementById('settings').style.display = 'none';
             status.textContent = "RACING...";
@@ -170,9 +155,8 @@
             if (armed) {
                 analyser.getByteFrequencyData(dataArray);
                 let avg = dataArray.reduce((a,b)=>a+b)/dataArray.length;
-                if(avg > document.getElementById('micThresh').value) { armed = false; startRace(); }
+                if(avg > 40) { armed = false; startRace(); }
             }
-
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             let xPos = (lineX/100)*canvas.width;
             let detected = false;
@@ -181,7 +165,6 @@
                 const current = ctx.getImageData(xPos-5, 0, 10, canvas.height).data;
                 let diff = 0; for(let i=0; i<current.length; i+=4) diff += Math.abs(current[i]-prevData[i]);
                 document.getElementById('motionBar').style.width = Math.min(100, (diff/500000)*100) + "%";
-                document.getElementById('triggerThresholdLine').style.left = (document.getElementById('pixelThresh').value/500000)*100 + "%";
                 if(raceActive && diff > document.getElementById('pixelThresh').value) detected = true;
                 prevData = current;
             } else if (detectionMode === 'object' && model && raceActive) {
@@ -198,25 +181,20 @@
         function trigger(now) {
             if(currentResults.length > 0 && (now - currentResults[currentResults.length-1].rawTime < 800)) return;
             runnersTriggered++;
-            document.body.classList.add('detection-flash');
-            setTimeout(() => document.body.classList.remove('detection-flash'), 100);
+            document.body.classList.add('detection-flash'); setTimeout(() => document.body.classList.remove('detection-flash'), 100);
             
             let time = (now - startTime)/1000;
-            let img = canvas.toDataURL('image/jpeg', 0.6);
-            let name = document.getElementById('n'+(runnersTriggered-1))?.value || "Runner "+runnersTriggered;
-            
-            let res = { heat: document.getElementById('heatNum').value, runnerName: name, time: parseFloat(time.toFixed(3)), timestamp: new Date().toLocaleTimeString(), photo: img, rawTime: now };
+            let res = { heat: document.getElementById('heatNum').value, runnerName: "Runner "+runnersTriggered, time: parseFloat(time.toFixed(3)), timestamp: new Date().toLocaleTimeString(), photo: canvas.toDataURL('image/jpeg', 0.6), rawTime: now };
             currentResults.push(res);
-            masterLog.push(res);
-            localStorage.setItem('DLS_MasterLog', JSON.stringify(masterLog));
             updateUI();
 
             if(runnersTriggered >= document.getElementById('numRacers').value) {
                 raceActive = false; status.textContent = "HEAT FINISHED";
-                document.getElementById('sendBtn').disabled = false;
-                document.getElementById('emailBtn').disabled = false;
-                document.getElementById('resetBtn').disabled = false;
+                document.getElementById('sendBtn').disabled = false; document.getElementById('emailBtn').disabled = false; document.getElementById('resetBtn').disabled = false;
                 document.getElementById('falseStartBtn').style.display = 'none';
+                // Automatically save the whole heat to master on finish
+                masterLog.push(...currentResults);
+                localStorage.setItem('DLS_MasterLog', JSON.stringify(masterLog));
             }
         }
 
@@ -224,12 +202,23 @@
             resultsLog.innerHTML = '';
             currentResults.forEach((r, i) => {
                 let div = document.createElement('div'); div.className = 'result-entry';
-                div.innerHTML = `<span><b>${r.runnerName}</b>: ${r.time}s</span><img src="${r.photo}" onclick="openReview(${i})">`;
+                div.innerHTML = `<span><span class="name-tag" onclick="renameRunner(${i})">${r.runnerName}</span>: ${r.time}s</span><img src="${r.photo}" onclick="openReview(${i})">`;
                 resultsLog.prepend(div);
             });
         }
 
-        // Modal Logic
+        function renameRunner(i) {
+            let newName = prompt("Enter Name for " + currentResults[i].runnerName, currentResults[i].runnerName);
+            if (newName) {
+                currentResults[i].runnerName = newName;
+                // Update in masterLog as well
+                let masterIdx = masterLog.findIndex(m => m.rawTime === currentResults[i].rawTime);
+                if (masterIdx !== -1) masterLog[masterIdx].runnerName = newName;
+                localStorage.setItem('DLS_MasterLog', JSON.stringify(masterLog));
+                updateUI();
+            }
+        }
+
         function openReview(i) {
             reviewIdx = i;
             document.getElementById('modalImg').src = currentResults[i].photo;
@@ -240,49 +229,34 @@
         function nudgeTime(amt) {
             if(reviewIdx === -1) return;
             currentResults[reviewIdx].time = parseFloat((currentResults[reviewIdx].time + amt).toFixed(3));
-            document.getElementById('modalInfo').innerHTML = `<strong>${currentResults[reviewIdx].runnerName}</strong> | Time: ${currentResults[reviewIdx].time}s`;
             updateUI();
         }
         function closeReview() { document.getElementById('photoModal').style.display = "none"; }
 
-        // Connections
         document.getElementById('sendBtn').onclick = async () => {
             status.textContent = "Sending...";
             const cleanData = currentResults.map(r => ({ heat: r.heat, runnerName: r.runnerName, time: r.time, timestamp: r.timestamp }));
             try {
                 await fetch(GOOGLE_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: cleanData }) });
                 alert("Sent to Sheet!");
-            } catch (e) { alert("Connection Error"); }
+            } catch (e) { alert("Error"); }
             status.textContent = "Ready.";
         };
 
-        document.getElementById('testBtn').onclick = async () => {
-            try {
-                await fetch(GOOGLE_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ results: [{heat:"TEST", runnerName:"CHECK", time:0, timestamp:"N/A"}] }) });
-                alert("Test Sent!");
-            } catch (e) { alert("Fail"); }
-        };
-
         document.getElementById('emailBtn').onclick = () => {
-            let email = document.getElementById('emailTo').value;
-            let subject = encodeURIComponent("Race Results - Heat " + document.getElementById('heatNum').value);
-            let body = "Results:\n\n";
-            currentResults.forEach(r => body += `Heat ${r.heat} - ${r.runnerName}: ${r.time}s\n`);
-            window.location.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(body)}`;
+            let body = "Results:\n\n" + currentResults.map(r => `Heat ${r.heat} - ${r.runnerName}: ${r.time}s`).join("\n");
+            window.location.href = `mailto:${document.getElementById('emailTo').value}?subject=Results&body=${encodeURIComponent(body)}`;
         };
 
         document.getElementById('csvBtn').onclick = () => {
             let csv = "Heat,Name,Time,Timestamp\n" + masterLog.map(r => `${r.heat},${r.runnerName},${r.time},${r.timestamp}`).join("\n");
-            let blob = new Blob([csv], { type: 'text/csv' });
-            let a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = "DLS_Daily_Log.csv"; a.click();
+            let a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = "DLS_Daily_Log.csv"; a.click();
         };
 
         document.getElementById('resetBtn').onclick = () => {
             raceActive = false; document.getElementById('startBtn').disabled = false; document.getElementById('armBtn').disabled = false;
             document.getElementById('heatNum').value++; currentResults = []; runnersTriggered = 0;
-            resultsLog.innerHTML = ''; status.textContent = "Ready.";
-            document.getElementById('settings').style.display = 'block';
-            updateInputs();
+            resultsLog.innerHTML = ''; status.textContent = "Ready."; document.getElementById('settings').style.display = 'block';
         };
 
         document.getElementById('toggleModeBtn').onclick = () => {
@@ -291,14 +265,6 @@
             document.getElementById('pixelViz').style.display = (detectionMode === 'pixel') ? 'block' : 'none';
         };
 
-        function updateInputs() {
-            let n = document.getElementById('nameInputs'); n.innerHTML = '';
-            for(let i=0; i<document.getElementById('numRacers').value; i++) n.innerHTML += `<input id="n${i}" placeholder="Lane ${i+1}" style="width:90%; margin:3px;">`;
-        }
-        document.getElementById('numRacers').oninput = updateInputs;
-        updateInputs();
-
-        // Draggable Overlay
         let dragging = false;
         overlay.onmousedown = () => dragging = true;
         document.onmousemove = (e) => {
