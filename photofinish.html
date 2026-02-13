@@ -3,30 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DLS PhotoFinish - Reverted Connection</title>
+    <title>DLS PhotoFinish Pro 2026</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@latest"></script>
+
     <style>
-        :root { --bg-color: #f0f0f0; --text-color: #333; --container-bg: #f9f9f9; --input-bg: white; --button-primary: #007bff; --button-success: #4CAF50; --button-danger: #f44336; --button-info: #607d8b; --finish-line: rgba(255, 0, 0, 0.7); }
-        body.dark-mode { --bg-color: #1e1e1e; --text-color: #e0e0e0; --container-bg: #2c2c2c; --input-bg: #3a3a3a; --button-primary: #0056b3; --button-success: #388e3c; --button-danger: #c62828; --button-info: #455a64; }
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 10px; background-color: var(--bg-color); color: var(--text-color); }
-        #cameraContainer { position: relative; width: 95vw; max-width: 640px; height: calc(95vw * 0.75); border: 2px solid var(--text-color); background: #333; border-radius: 8px; overflow: hidden; }
+        :root {
+            --bg-color: #f0f0f0; --text-color: #333; --container-bg: #f9f9f9;
+            --input-bg: white; --button-primary: #007bff; --button-success: #4CAF50;
+            --button-danger: #f44336; --button-info: #607d8b; --finish-line: rgba(255, 0, 0, 0.7);
+        }
+        body.dark-mode {
+            --bg-color: #1e1e1e; --text-color: #e0e0e0; --container-bg: #2c2c2c;
+            --input-bg: #3a3a3a; --button-primary: #0056b3; --button-success: #388e3c;
+            --button-danger: #c62828; --button-info: #455a64;
+        }
+
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 10px; background-color: var(--bg-color); color: var(--text-color); transition: background 0.3s; }
+        .detection-flash { animation: flash-white 0.2s ease-out; }
+        @keyframes flash-white { 0% { background-color: #fff; } 100% { background-color: var(--bg-color); } }
+
+        #cameraContainer { position: relative; width: 95vw; max-width: 640px; height: calc(95vw * 0.75); border: 2px solid var(--text-color); margin-bottom: 15px; background: #333; overflow: hidden; border-radius: 8px; }
         #cameraFeed { width: 100%; height: 100%; object-fit: cover; }
-        #finishLineOverlay { position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; background: var(--finish-line); cursor: ew-resize; z-index: 10; display: none; }
+        #finishLineOverlay { position: absolute; left: 50%; top: 0; bottom: 0; width: 5px; background-color: var(--finish-line); transform: translateX(-50%); cursor: ew-resize; z-index: 10; display: none; }
+        
         .panel { width: 95%; max-width: 640px; background: var(--container-bg); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #ccc; box-sizing: border-box; }
         button { padding: 12px 15px; border: none; border-radius: 5px; color: white; cursor: pointer; font-weight: bold; margin: 5px; }
         input { padding: 10px; border-radius: 4px; border: 1px solid #ccc; background: var(--input-bg); color: var(--text-color); }
-        .meter-container { width: 100%; height: 15px; background: #ddd; border-radius: 10px; position: relative; margin: 10px 0; }
-        #motionBar { height: 100%; width: 0%; background: #2196F3; border-radius: 10px; }
-        #triggerLine { position: absolute; top: 0; bottom: 0; width: 2px; background: red; left: 30%; }
-        #resultsLog { max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: var(--bg-color); margin-bottom: 10px; }
-        .result-entry { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee; }
-        .result-entry img { width: 60px; border-radius: 4px; }
+
+        #resultsLog { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; background: var(--bg-color); margin-bottom: 10px; }
+        .result-entry { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; padding: 8px 0; }
+        .result-entry img { width: 80px; border-radius: 4px; cursor: zoom-in; }
+
+        /* Review Modal */
+        #photoModal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); align-items: center; justify-content: center; flex-direction: column; }
+        #modalImg { max-width: 90%; max-height: 70%; border: 2px solid white; }
     </style>
 </head>
 <body class="dark-mode">
 
-    <h2>DLS PhotoFinish Pro</h2>
+    <h2>DLS PhotoFinish Pro 2026</h2>
+
+    <div id="photoModal">
+        <span style="position: absolute; top: 20px; right: 30px; color: white; font-size: 40px; cursor: pointer;" onclick="closeReview()">&times;</span>
+        <img id="modalImg">
+        <div id="modalInfo" style="color:white; margin-top:10px; text-align:center;"></div>
+        <div style="margin-top:10px;">
+            <button onclick="nudgeTime(-0.01)" style="background:#444">Nudge -0.01s</button>
+            <button onclick="nudgeTime(0.01)" style="background:#444">Nudge +0.01s</button>
+        </div>
+        <button onclick="closeReview()" style="margin-top:20px; background:var(--button-danger);">Save & Close</button>
+    </div>
 
     <div id="cameraContainer">
         <video id="cameraFeed" autoplay playsinline muted></video>
@@ -35,42 +62,37 @@
     <canvas id="frameCanvas" style="display:none;"></canvas>
 
     <div class="panel">
-        <button id="setupBtn" style="background:var(--button-primary); width:100%;">Setup Hardware</button>
+        <button id="setupBtn" style="background:var(--button-primary); width:100%;">1. Setup Cam & Mic</button>
         <div style="display:flex; justify-content:center;">
             <button id="armBtn" style="background:#673ab7; display:none;">Arm Sound</button>
             <button id="startBtn" style="background:var(--button-success);" disabled>Manual Start</button>
-            <button id="resetBtn" style="background:var(--button-danger);" disabled>Reset</button>
+            <button id="resetBtn" style="background:var(--button-danger);" disabled>Reset Heat</button>
         </div>
         <div id="status" style="text-align:center; font-weight:bold; color:#ffeb3b; margin-top:5px;">Ready.</div>
     </div>
 
     <div id="settings" class="panel" style="display:none;">
-        <div class="meter-container"><div id="motionBar"></div><div id="triggerLine"></div></div>
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <label>Sensitivity:</label>
-            <input type="range" id="thresh" min="50000" max="500000" value="150000">
-        </div>
-        <div style="margin-top:10px;">
+        <div style="margin-bottom:10px;">
+            Heat #: <input type="number" id="heatNum" value="1" style="width:50px;">
             Runners: <input type="number" id="numRacers" value="2" style="width:50px;">
-            Heat: <input type="number" id="heatNum" value="1" style="width:50px;">
         </div>
-        <div id="nameInputs" style="margin-top:10px;"></div>
+        <div id="nameInputs"></div>
     </div>
 
     <div class="panel">
         <div id="resultsLog"></div>
-        <button id="sendBtn" style="background:var(--button-primary); width:100%;" disabled>Send to Google Sheet</button>
+        <button id="sendBtn" style="background:var(--button-primary); width:100%;" disabled>Send Heat to Google Sheet</button>
         <button id="testBtn" style="background:#9c27b0; width:100%; margin-top:5px;">Test Connection</button>
-        <button id="emailBtn" style="background:var(--button-info); width:100%; margin-top:5px;" disabled>Email Results</button>
     </div>
 
     <script>
         const GOOGLE_SHEET_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzEpSlFTTfVCCvvf_Lilq5fzaTJcDXUQuitu8y7-KCV-4XMQaeF3LrLJPRJYhFNjY8v/exec";
         
         const video = document.getElementById('cameraFeed'), canvas = document.getElementById('frameCanvas'), ctx = canvas.getContext('2d');
-        const status = document.getElementById('status'), resultsLog = document.getElementById('resultsLog');
-        let raceActive = false, startTime = 0, runners = 0, results = [], model = null, prevData = null, lineX = 50, armed = false;
-        let audioCtx, analyser, dataArray;
+        const status = document.getElementById('status'), resultsLog = document.getElementById('resultsLog'), overlay = document.getElementById('finishLineOverlay');
+        
+        let raceActive = false, startTime = 0, runnersTriggered = 0, currentResults = [], model = null, prevData = null, lineX = 50, armed = false;
+        let audioCtx, analyser, dataArray, reviewIdx = -1;
 
         document.getElementById('setupBtn').onclick = async () => {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: true });
@@ -80,7 +102,7 @@
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             video.onloadedmetadata = () => {
                 canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-                document.getElementById('finishLineOverlay').style.display = 'block';
+                overlay.style.display = 'block';
                 document.getElementById('settings').style.display = 'block';
                 document.getElementById('armBtn').style.display = 'inline-block';
                 document.getElementById('setupBtn').style.display = 'none';
@@ -89,79 +111,130 @@
             };
         };
 
-        function start() {
-            results = []; runners = 0; resultsLog.innerHTML = '';
+        function startRace() {
+            currentResults = []; runnersTriggered = 0; resultsLog.innerHTML = '';
             raceActive = true; startTime = performance.now();
             document.getElementById('startBtn').disabled = true;
             document.getElementById('resetBtn').disabled = false;
+            document.getElementById('settings').style.display = 'none';
             status.textContent = "RACING...";
         }
 
-        document.getElementById('startBtn').onclick = start;
-        document.getElementById('armBtn').onclick = () => { armed = true; status.textContent = "LISTENING..."; };
+        document.getElementById('startBtn').onclick = startRace;
+        document.getElementById('armBtn').onclick = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); armed = true; status.textContent = "LISTENING FOR START..."; };
 
         function loop() {
-            analyser.getByteFrequencyData(dataArray);
-            let avg = dataArray.reduce((a,b)=>a+b)/dataArray.length;
-            if(armed && avg > 40) { armed = false; start(); }
+            if (armed) {
+                analyser.getByteFrequencyData(dataArray);
+                let avg = dataArray.reduce((a,b)=>a+b)/dataArray.length;
+                if(avg > 40) { armed = false; startRace(); }
+            }
 
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             let xPos = (lineX/100)*canvas.width;
             
-            // Pixel Detection Visualizer
+            // Basic Pixel Detection
             const current = ctx.getImageData(xPos-5, 0, 10, canvas.height).data;
-            if(prevData) {
+            if(prevData && raceActive && runnersTriggered < document.getElementById('numRacers').value) {
                 let diff = 0; for(let i=0; i<current.length; i+=4) diff += Math.abs(current[i]-prevData[i]);
-                document.getElementById('motionBar').style.width = Math.min(100, (diff/500000)*100) + "%";
-                document.getElementById('triggerLine').style.left = (document.getElementById('thresh').value/500000)*100 + "%";
-                if(raceActive && runners < document.getElementById('numRacers').value && diff > document.getElementById('thresh').value) trigger(performance.now());
+                if(diff > 150000 && (performance.now() - startTime > 1000)) trigger(performance.now());
             }
             prevData = current;
             requestAnimationFrame(loop);
         }
 
         function trigger(now) {
-            if(performance.now() - startTime < 1000 || (results.length > 0 && performance.now() - results[results.length-1].raw < 800)) return;
-            runners++;
+            if(currentResults.length > 0 && (now - currentResults[currentResults.length-1].rawTime < 800)) return;
+            runnersTriggered++;
             let time = (now - startTime)/1000;
             let img = canvas.toDataURL('image/jpeg', 0.6);
-            let name = document.getElementById('n'+(runners-1))?.value || "Runner "+runners;
-            let res = { heat: document.getElementById('heatNum').value, runnerName: name, time: time.toFixed(3), timestamp: new Date().toLocaleTimeString(), raw: performance.now() };
-            results.push(res);
+            let name = document.getElementById('n'+(runnersTriggered-1))?.value || "Runner "+runnersTriggered;
             
-            let div = document.createElement('div'); div.className = 'result-entry';
-            div.innerHTML = `<span>${name}: ${res.time}s</span><img src="${img}">`;
-            resultsLog.prepend(div);
+            let res = { 
+                heat: document.getElementById('heatNum').value, 
+                runnerName: name, 
+                time: parseFloat(time.toFixed(3)), 
+                timestamp: new Date().toLocaleTimeString(),
+                photo: img,
+                rawTime: now
+            };
+            currentResults.push(res);
+            updateUI();
 
-            if(runners >= document.getElementById('numRacers').value) {
-                raceActive = false; status.textContent = "FINISHED";
+            if(runnersTriggered >= document.getElementById('numRacers').value) {
+                raceActive = false; status.textContent = "HEAT FINISHED";
                 document.getElementById('sendBtn').disabled = false;
-                document.getElementById('emailBtn').disabled = false;
             }
         }
 
-        document.getElementById('testBtn').onclick = () => {
-            const testData = [{ heat: "TEST", runnerName: "OK", time: "0.000", timestamp: new Date().toLocaleTimeString() }];
-            fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(testData) });
-            alert("Test Data Sent. Check Sheet.");
+        function updateUI() {
+            resultsLog.innerHTML = '';
+            currentResults.forEach((r, i) => {
+                let div = document.createElement('div'); div.className = 'result-entry';
+                div.innerHTML = `<span>${r.runnerName}: ${r.time}s</span><img src="${r.photo}" onclick="openReview(${i})">`;
+                resultsLog.prepend(div);
+            });
+        }
+
+        function openReview(i) {
+            reviewIdx = i;
+            document.getElementById('modalImg').src = currentResults[i].photo;
+            document.getElementById('modalInfo').innerHTML = `<strong>${currentResults[i].runnerName}</strong> | Time: ${currentResults[i].time}s`;
+            document.getElementById('photoModal').style.display = "flex";
+        }
+        function nudgeTime(amt) {
+            if(reviewIdx === -1) return;
+            currentResults[reviewIdx].time = parseFloat((currentResults[reviewIdx].time + amt).toFixed(3));
+            document.getElementById('modalInfo').innerHTML = `<strong>${currentResults[reviewIdx].runnerName}</strong> | Time: ${currentResults[reviewIdx].time}s`;
+            updateUI();
+        }
+        function closeReview() { document.getElementById('photoModal').style.display = "none"; }
+
+        // --- GOOGLE SHEET CONNECTION ---
+        document.getElementById('testBtn').onclick = async () => {
+            status.textContent = "Testing...";
+            const test = [{ heat: "TEST", runnerName: "SYSTEM", time: 0, timestamp: new Date().toLocaleTimeString() }];
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(test) });
+                alert("Test Sent. Check Sheet.");
+            } catch (e) { alert("Fail."); }
+            status.textContent = "Ready.";
         };
 
-        document.getElementById('sendBtn').onclick = () => {
-            fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(results) });
-            alert("Heat Results Sent!");
+        document.getElementById('sendBtn').onclick = async () => {
+            status.textContent = "Sending...";
+            // We strip the photo before sending to keep the message small/fast
+            const cleanData = currentResults.map(r => ({ heat: r.heat, runnerName: r.runnerName, time: r.time, timestamp: r.timestamp }));
+            try {
+                await fetch(GOOGLE_SHEET_WEB_APP_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(cleanData) });
+                alert("Sent to Sheet!");
+            } catch (e) { alert("Fail."); }
+            status.textContent = "Ready.";
         };
 
         document.getElementById('resetBtn').onclick = () => {
             raceActive = false; document.getElementById('startBtn').disabled = false;
-            document.getElementById('heatNum').value++; results = []; runners = 0;
+            document.getElementById('heatNum').value++; currentResults = []; runnersTriggered = 0;
             resultsLog.innerHTML = ''; status.textContent = "Ready.";
+            document.getElementById('settings').style.display = 'block';
         };
 
         document.getElementById('numRacers').oninput = () => {
             let n = document.getElementById('nameInputs'); n.innerHTML = '';
-            for(let i=0; i<document.getElementById('numRacers').value; i++) n.innerHTML += `<input id="n${i}" placeholder="Lane ${i+1}" style="width:80%; margin:2px;">`;
+            for(let i=0; i<document.getElementById('numRacers').value; i++) n.innerHTML += `<input id="n${i}" placeholder="Lane ${i+1}" style="width:90%; margin:3px;">`;
         };
         document.getElementById('numRacers').oninput();
+
+        // Draggable Line
+        let dragging = false;
+        overlay.onmousedown = () => dragging = true;
+        document.onmousemove = (e) => {
+            if (!dragging) return;
+            const rect = document.getElementById('cameraContainer').getBoundingClientRect();
+            lineX = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+            overlay.style.left = lineX + "%";
+        };
+        document.onmouseup = () => dragging = false;
     </script>
 </body>
 </html>
